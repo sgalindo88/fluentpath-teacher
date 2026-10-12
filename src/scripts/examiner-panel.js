@@ -1152,7 +1152,7 @@ function displaySubmission(data) {
   if (!trimNote) {
     trimNote = document.createElement('div');
     trimNote.id = 'answers-truncated-note';
-    trimNote.style.cssText = 'display:none;margin:0 0 12px;padding:10px 14px;border:1px solid var(--gold);background:#fff8e6;font-size:13px;';
+    trimNote.className = 'fp-banner fp-banner--warning fp-hidden fp-mb-4';
     var markArea = document.getElementById('marking-area');
     markArea.insertBefore(trimNote, markArea.firstChild);
   }
@@ -1160,9 +1160,9 @@ function displaySubmission(data) {
     var cutKeys = Array.isArray(answers._truncated_keys) ? answers._truncated_keys.map(String).join(', ') : '';
     trimNote.textContent = 'Note: some of this student\u2019s answers were too long to save in full and were shortened' +
       (cutKeys ? ' (' + cutKeys + ')' : '') + '. The sheet\u2019s written-work columns also hold the start of each response.';
-    trimNote.style.display = 'block';
+    trimNote.classList.remove('fp-hidden');
   } else {
-    trimNote.style.display = 'none';
+    trimNote.classList.add('fp-hidden');
   }
 
   // ── Graded badge ──
@@ -2428,7 +2428,7 @@ function openLibraryCell(level, day) {
   var content = document.getElementById('lib-modal-content');
 
   var html = '<div class="panel-eyebrow" style="margin-bottom:4px;">LESSON LIBRARY</div>' +
-    '<div style="font-family:\'Playfair Display\',serif;font-size:24px;font-weight:700;margin-bottom:4px;">' +
+    '<div style="font-family:var(--font-family-primary);font-size:24px;font-weight:700;margin-bottom:4px;">' +
     escHtml(level) + ' &middot; Day ' + day + '</div>';
 
   if (!g || g.entries.length === 0) {

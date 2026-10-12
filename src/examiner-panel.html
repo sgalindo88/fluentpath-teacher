@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Teacher Dashboard · FluentPath</title>
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles/tokens.css">
 <link rel="stylesheet" href="styles/theme.css">
+<link rel="stylesheet" href="styles/components.css">
 <link rel="stylesheet" href="styles/examiner-panel.css">
 </head>
 <body>
@@ -388,7 +390,7 @@
               </div>
               <div style="margin-top:16px;background:var(--ink);padding:18px;display:flex;justify-content:space-between;align-items:center;">
                 <div><div style="font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(245,240,232,0.4);">LESSON TOTAL (graded)</div>
-                <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--paper);" id="sum-total">0 <span style="font-size:14px;color:var(--gold);">/ 45</span></div></div>
+                <div style="font-family:var(--font-family-primary);font-size:28px;font-weight:700;color:var(--paper);" id="sum-total">0 <span style="font-size:14px;color:var(--gold);">/ 45</span></div></div>
                 <div style="text-align:right;"><div style="font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(245,240,232,0.4);">CONFIDENCE</div><div style="font-size:18px;color:var(--gold);font-style:italic;" id="sum-confidence">—</div></div>
               </div>
             </div>
@@ -693,35 +695,35 @@
           <div class="section-score-display"><div class="ssd-label">Writing Score</div><div class="ssd-val" id="pt-writing-score">0 <span>/ 25</span></div></div>
 
           <div style="margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--rule);">
-            <div style="font-weight:600;margin-bottom:4px;">Q11 · Passive Voice <span style="color:var(--muted);font-weight:300;">(5 marks)</span></div>
+            <div style="font-weight:600;margin-bottom:4px;">Q11 · Passive Voice <span style="color:var(--muted);font-weight:400;">(5 marks)</span></div>
             <div style="background:var(--cream);padding:10px 14px;margin-bottom:8px;font-size:14px;font-style:italic;" id="pt-rv-q11">—</div>
             <div class="mark-slider-row"><label>Score</label><input type="range" class="mark-slider" id="pt-slider-q11" min="0" max="5" step="1" value="0" oninput="updatePTSlider('q11',5)" onchange="updatePTSlider('q11',5)"><div class="mark-val" id="pt-disp-q11">0 <span>/ 5</span></div></div>
             <textarea class="mark-notes" id="pt-notes-q11" placeholder="Notes..." oninput="updatePTResults()"></textarea>
           </div>
 
           <div style="margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--rule);">
-            <div style="font-weight:600;margin-bottom:4px;">Q12 · Combining Sentences <span style="color:var(--muted);font-weight:300;">(5 marks)</span></div>
+            <div style="font-weight:600;margin-bottom:4px;">Q12 · Combining Sentences <span style="color:var(--muted);font-weight:400;">(5 marks)</span></div>
             <div style="background:var(--cream);padding:10px 14px;margin-bottom:8px;font-size:14px;font-style:italic;" id="pt-rv-q12">—</div>
             <div class="mark-slider-row"><label>Score</label><input type="range" class="mark-slider" id="pt-slider-q12" min="0" max="5" step="1" value="0" oninput="updatePTSlider('q12',5)" onchange="updatePTSlider('q12',5)"><div class="mark-val" id="pt-disp-q12">0 <span>/ 5</span></div></div>
             <textarea class="mark-notes" id="pt-notes-q12" placeholder="Notes..." oninput="updatePTResults()"></textarea>
           </div>
 
           <div style="margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--rule);">
-            <div style="font-weight:600;margin-bottom:4px;">Q13 · Error Correction <span style="color:var(--muted);font-weight:300;">(5 marks)</span></div>
+            <div style="font-weight:600;margin-bottom:4px;">Q13 · Error Correction <span style="color:var(--muted);font-weight:400;">(5 marks)</span></div>
             <div style="background:var(--cream);padding:10px 14px;margin-bottom:8px;font-size:14px;font-style:italic;" id="pt-rv-q13">—</div>
             <div class="mark-slider-row"><label>Score</label><input type="range" class="mark-slider" id="pt-slider-q13" min="0" max="5" step="1" value="0" oninput="updatePTSlider('q13',5)" onchange="updatePTSlider('q13',5)"><div class="mark-val" id="pt-disp-q13">0 <span>/ 5</span></div></div>
             <textarea class="mark-notes" id="pt-notes-q13" placeholder="Notes..." oninput="updatePTResults()"></textarea>
           </div>
 
           <div style="margin-bottom:20px;">
-            <div style="font-weight:600;margin-bottom:4px;">Q14 · Short Writing Task <span style="color:var(--muted);font-weight:300;">(10 marks)</span></div>
+            <div style="font-weight:600;margin-bottom:4px;">Q14 · Short Writing Task <span style="color:var(--muted);font-weight:400;">(10 marks)</span></div>
             <div style="background:var(--cream);padding:10px 14px;margin-bottom:8px;font-size:14px;font-style:italic;max-height:200px;overflow-y:auto;" id="pt-rv-q14">—</div>
             <p style="font-size:12px;color:var(--muted);margin-bottom:8px;">Score each sub-criterion (0–2.5 each, total 10):</p>
             <div class="mark-slider-row"><label>Task Achievement</label><input type="range" class="mark-slider" id="pt-sc-task" min="0" max="2.5" step="0.5" value="0" oninput="updatePTSubCriteria()" onchange="updatePTSubCriteria()"><div class="mark-val" id="pt-scv-task">0</div></div>
             <div class="mark-slider-row"><label>Grammar & Accuracy</label><input type="range" class="mark-slider" id="pt-sc-grammar" min="0" max="2.5" step="0.5" value="0" oninput="updatePTSubCriteria()" onchange="updatePTSubCriteria()"><div class="mark-val" id="pt-scv-grammar">0</div></div>
             <div class="mark-slider-row"><label>Vocabulary Range</label><input type="range" class="mark-slider" id="pt-sc-vocab" min="0" max="2.5" step="0.5" value="0" oninput="updatePTSubCriteria()" onchange="updatePTSubCriteria()"><div class="mark-val" id="pt-scv-vocab">0</div></div>
             <div class="mark-slider-row"><label>Coherence & Structure</label><input type="range" class="mark-slider" id="pt-sc-coherence" min="0" max="2.5" step="0.5" value="0" oninput="updatePTSubCriteria()" onchange="updatePTSubCriteria()"><div class="mark-val" id="pt-scv-coherence">0</div></div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--rule);"><div style="font-weight:600;font-size:13px;">Q14 Total</div><div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;" id="pt-sct-q14">0 / 10</div></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--rule);"><div style="font-weight:600;font-size:13px;">Q14 Total</div><div style="font-family:var(--font-family-primary);font-size:20px;font-weight:700;" id="pt-sct-q14">0 / 10</div></div>
             <textarea class="mark-notes" id="pt-notes-q14" placeholder="Notes on writing task..." oninput="updatePTResults()"></textarea>
           </div>
         </div>
@@ -732,28 +734,28 @@
           <div class="section-score-display"><div class="ssd-label">Speaking Score</div><div class="ssd-val" id="pt-speaking-score">0 <span>/ 20</span></div></div>
 
           <div style="margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--rule);">
-            <div style="font-weight:600;margin-bottom:4px;">Q21 · Introduction (Part A) <span style="color:var(--muted);font-weight:300;">(5 marks)</span></div>
+            <div style="font-weight:600;margin-bottom:4px;">Q21 · Introduction (Part A) <span style="color:var(--muted);font-weight:400;">(5 marks)</span></div>
             <div style="background:var(--cream);padding:10px 14px;margin-bottom:8px;font-size:14px;font-style:italic;" id="pt-rv-q21">—</div>
             <div class="mark-slider-row"><label>Score</label><input type="range" class="mark-slider" id="pt-slider-q21" min="0" max="5" step="1" value="0" oninput="updatePTSlider('q21',5)" onchange="updatePTSlider('q21',5)"><div class="mark-val" id="pt-disp-q21">0 <span>/ 5</span></div></div>
             <textarea class="mark-notes" id="pt-notes-q21" placeholder="Notes..." oninput="updatePTResults()"></textarea>
           </div>
 
           <div style="margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--rule);">
-            <div style="font-weight:600;margin-bottom:4px;">Q22 · Everyday Topics (Part A) <span style="color:var(--muted);font-weight:300;">(5 marks)</span></div>
+            <div style="font-weight:600;margin-bottom:4px;">Q22 · Everyday Topics (Part A) <span style="color:var(--muted);font-weight:400;">(5 marks)</span></div>
             <div style="background:var(--cream);padding:10px 14px;margin-bottom:8px;font-size:14px;font-style:italic;" id="pt-rv-q22">—</div>
             <div class="mark-slider-row"><label>Score</label><input type="range" class="mark-slider" id="pt-slider-q22" min="0" max="5" step="1" value="0" oninput="updatePTSlider('q22',5)" onchange="updatePTSlider('q22',5)"><div class="mark-val" id="pt-disp-q22">0 <span>/ 5</span></div></div>
             <textarea class="mark-notes" id="pt-notes-q22" placeholder="Notes..." oninput="updatePTResults()"></textarea>
           </div>
 
           <div style="margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--rule);">
-            <div style="font-weight:600;margin-bottom:4px;">Q23 · Extended Speaking (Part B) <span style="color:var(--muted);font-weight:300;">(5 marks)</span></div>
+            <div style="font-weight:600;margin-bottom:4px;">Q23 · Extended Speaking (Part B) <span style="color:var(--muted);font-weight:400;">(5 marks)</span></div>
             <div style="background:var(--cream);padding:10px 14px;margin-bottom:8px;font-size:14px;font-style:italic;" id="pt-rv-q23">—</div>
             <div class="mark-slider-row"><label>Score</label><input type="range" class="mark-slider" id="pt-slider-q23" min="0" max="5" step="1" value="0" oninput="updatePTSlider('q23',5)" onchange="updatePTSlider('q23',5)"><div class="mark-val" id="pt-disp-q23">0 <span>/ 5</span></div></div>
             <textarea class="mark-notes" id="pt-notes-q23" placeholder="Notes..." oninput="updatePTResults()"></textarea>
           </div>
 
           <div style="margin-bottom:20px;">
-            <div style="font-weight:600;margin-bottom:4px;">Q24 · Discussion & Opinion (Part C) <span style="color:var(--muted);font-weight:300;">(5 marks)</span></div>
+            <div style="font-weight:600;margin-bottom:4px;">Q24 · Discussion & Opinion (Part C) <span style="color:var(--muted);font-weight:400;">(5 marks)</span></div>
             <div style="background:var(--cream);padding:10px 14px;margin-bottom:8px;font-size:14px;font-style:italic;" id="pt-rv-q24">—</div>
             <div class="mark-slider-row"><label>Score</label><input type="range" class="mark-slider" id="pt-slider-q24" min="0" max="5" step="1" value="0" oninput="updatePTSlider('q24',5)" onchange="updatePTSlider('q24',5)"><div class="mark-val" id="pt-disp-q24">0 <span>/ 5</span></div></div>
             <textarea class="mark-notes" id="pt-notes-q24" placeholder="Notes..." oninput="updatePTResults()"></textarea>
@@ -764,14 +766,14 @@
         <div class="card card-top purple" id="pt-results-card" style="display:none;">
           <div class="card-label">RESULTS</div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-            <div><div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--muted);font-weight:600;">Total Score</div><div style="font-family:'Playfair Display',serif;font-size:40px;font-weight:700;" id="pt-res-total">0 <span style="font-size:18px;color:var(--muted);">/ 80</span></div></div>
-            <div style="text-align:center;background:var(--blue-bg);border:2px solid var(--blue);padding:12px 24px;border-radius:6px;"><div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--blue);" id="pt-res-cefr">—</div><div style="font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--blue);font-weight:600;">CEFR Level</div></div>
+            <div><div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--muted);font-weight:600;">Total Score</div><div style="font-family:var(--font-family-primary);font-size:40px;font-weight:700;" id="pt-res-total">0 <span style="font-size:18px;color:var(--muted);">/ 80</span></div></div>
+            <div style="text-align:center;background:var(--blue-bg);border:2px solid var(--blue);padding:12px 24px;border-radius:6px;"><div style="font-family:var(--font-family-primary);font-size:28px;font-weight:700;color:var(--blue);" id="pt-res-cefr">—</div><div style="font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--blue);font-weight:600;">CEFR Level</div></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
-            <div style="padding:12px;border:1px solid var(--rule);border-top:3px solid var(--green);"><div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);font-weight:600;">Reading</div><div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;" id="pt-res-reading">0 <span style="font-size:13px;color:var(--muted);">/ 20</span></div></div>
-            <div style="padding:12px;border:1px solid var(--rule);border-top:3px solid var(--rust);"><div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);font-weight:600;">Writing</div><div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;" id="pt-res-writing">0 <span style="font-size:13px;color:var(--muted);">/ 25</span></div></div>
-            <div style="padding:12px;border:1px solid var(--rule);border-top:3px solid var(--blue);"><div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);font-weight:600;">Listening</div><div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;" id="pt-res-listening">0 <span style="font-size:13px;color:var(--muted);">/ 15</span></div></div>
-            <div style="padding:12px;border:1px solid var(--rule);border-top:3px solid var(--gold);"><div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);font-weight:600;">Speaking</div><div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;" id="pt-res-speaking">0 <span style="font-size:13px;color:var(--muted);">/ 20</span></div></div>
+            <div style="padding:12px;border:1px solid var(--rule);border-top:3px solid var(--green);"><div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);font-weight:600;">Reading</div><div style="font-family:var(--font-family-primary);font-size:22px;font-weight:700;" id="pt-res-reading">0 <span style="font-size:13px;color:var(--muted);">/ 20</span></div></div>
+            <div style="padding:12px;border:1px solid var(--rule);border-top:3px solid var(--rust);"><div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);font-weight:600;">Writing</div><div style="font-family:var(--font-family-primary);font-size:22px;font-weight:700;" id="pt-res-writing">0 <span style="font-size:13px;color:var(--muted);">/ 25</span></div></div>
+            <div style="padding:12px;border:1px solid var(--rule);border-top:3px solid var(--blue);"><div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);font-weight:600;">Listening</div><div style="font-family:var(--font-family-primary);font-size:22px;font-weight:700;" id="pt-res-listening">0 <span style="font-size:13px;color:var(--muted);">/ 15</span></div></div>
+            <div style="padding:12px;border:1px solid var(--rule);border-top:3px solid var(--gold);"><div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);font-weight:600;">Speaking</div><div style="font-family:var(--font-family-primary);font-size:22px;font-weight:700;" id="pt-res-speaking">0 <span style="font-size:13px;color:var(--muted);">/ 20</span></div></div>
           </div>
           <div style="margin-bottom:16px;">
             <div style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:6px;">Overall Feedback</div>
@@ -831,8 +833,10 @@
 </div><!-- /app -->
 
 <script src="scripts/config.js"></script>
+<script src="scripts/icons.js"></script>
 <script src="scripts/api.js"></script>
 <script src="scripts/utils.js"></script>
+<script src="scripts/ui.js"></script>
 <script src="scripts/examiner-panel.js"></script>
 </body>
 </html>

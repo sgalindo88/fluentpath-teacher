@@ -2,7 +2,9 @@
    FluentPath — Service Worker
    ─────────────────────────────────────────────────────────────
    Strategies:
-     - App shell (HTML, CSS, JS): cache-first, update in background
+     - App shell HTML, CSS and JS: network-first (4 s), cache when offline, so a
+       page and its scripts/styles always come from the same deploy (SW-1)
+     - Fonts, icons, images (immutable assets): cache-first
      - API GET requests: stale-while-revalidate (serve cache, refresh)
      - API POST requests: try network, queue in IndexedDB on failure
      - Google Fonts: cache-first (long-lived)
@@ -28,8 +30,20 @@ var APP_SHELL = [
   './src/scripts/call-request.js',
   './src/scripts/i18n.js',
   './src/scripts/password-reset.js',
+  './src/styles/tokens.css',
   './src/styles/theme.css',
+  './src/styles/components.css',
   './src/styles/mobile.css',
+  './src/scripts/icons.js',
+  './src/scripts/ui.js',
+  './src/fonts/montserrat-latin-400-normal.woff2',
+  './src/fonts/montserrat-latin-ext-400-normal.woff2',
+  './src/fonts/montserrat-latin-500-normal.woff2',
+  './src/fonts/montserrat-latin-ext-500-normal.woff2',
+  './src/fonts/montserrat-latin-600-normal.woff2',
+  './src/fonts/montserrat-latin-ext-600-normal.woff2',
+  './src/fonts/montserrat-latin-700-normal.woff2',
+  './src/fonts/montserrat-latin-ext-700-normal.woff2',
   './src/styles/teacher-portal.css',
   './src/styles/examiner-panel.css',
 ];
@@ -98,11 +112,13 @@ self.addEventListener('fetch', function (event) {
 
   // ── App shell (local files) ──
   if (url.origin === self.location.origin) {
-    // HTML pages use network-first so users always get fresh content when online
-    if (event.request.mode === 'navigate' || url.pathname.endsWith('.html')) {
-      event.respondWith(networkFirst(event.request, CACHE_VERSION));
+    // SW-1: HTML, CSS and JS are all network-first. They were split (HTML fresh,
+    // CSS/JS from cache), so an iPad that had the old cache loaded NEW html with OLD
+    // css/js after every deploy. Offline, the cached copies still serve.
+    if (isShellRequest(event.request, url)) {
+      event.respondWith(networkFirst(event.request, CACHE_VERSION, SHELL_NETWORK_TIMEOUT_MS));
     } else {
-      // CSS, JS, etc. use cache-first (they change less frequently)
+      // Fonts, icons, images: they only change with a CACHE_VERSION bump.
       event.respondWith(cacheFirst(event.request, CACHE_VERSION));
     }
     return;
@@ -111,22 +127,45 @@ self.addEventListener('fetch', function (event) {
 
 // ── STRATEGIES ──────────────────────────────────────────
 
-function networkFirst(request, cacheName) {
-  return fetch(request).then(function (response) {
+var SHELL_NETWORK_TIMEOUT_MS = 4000;
+
+/** HTML, CSS and JS of the app itself (everything the page and its code are made of). */
+function isShellRequest(request, url) {
+  return request.mode === 'navigate' || /\.(html|css|js|webmanifest)$/.test(url.pathname) || url.pathname.slice(-1) === '/';
+}
+
+/**
+ * Network first; fall back to the cache if the network fails OR is slower than
+ * `timeoutMs` (a student on a weak connection gets the cached copy rather than a
+ * spinner). The slow request still completes and refreshes the cache.
+ */
+function networkFirst(request, cacheName, timeoutMs) {
+  var network = fetch(request).then(function (response) {
     if (response.ok) {
       var clone = response.clone();
       caches.open(cacheName).then(function (cache) { cache.put(request, clone); });
     }
     return response;
-  }).catch(function () {
-    // Network failed — try cache
+  });
+  var fallback = function () {
     return caches.match(request).then(function (cached) {
       return cached || new Response('Offline — please reconnect and try again.', {
         status: 503,
         headers: { 'Content-Type': 'text/plain' },
       });
     });
+  };
+  if (!timeoutMs) return network.catch(fallback);
+  var timer;
+  var timeout = new Promise(function (resolve) {
+    timer = setTimeout(function () {
+      caches.match(request).then(function (cached) { resolve(cached || null); });
+    }, timeoutMs);
   });
+  return Promise.race([
+    network.then(function (r) { clearTimeout(timer); return r; }, function (e) { clearTimeout(timer); throw e; }),
+    timeout,
+  ]).then(function (r) { return r || network; }).catch(fallback);
 }
 
 function cacheFirst(request, cacheName) {

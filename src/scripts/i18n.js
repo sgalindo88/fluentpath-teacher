@@ -290,9 +290,9 @@ const I18n = (() => {
       /* ── Help text (secondary language shown below primary) ── */
       .i18n-hint {
         display: block;
-        font-family: 'Source Serif 4', Georgia, serif;
+        font-family:var(--font-family-primary);
         font-size: 0.78em;
-        font-weight: 300;
+        font-weight:400;
         font-style: italic;
         color: var(--muted, #6b5f4e);
         margin-top: 2px;
@@ -333,7 +333,7 @@ const I18n = (() => {
         color: var(--paper, #f5f0e8);
         padding: 8px 14px;
         border-radius: 6px;
-        font-family: 'Source Serif 4', Georgia, serif;
+        font-family:var(--font-family-primary);
         font-size: 13px;
         font-style: italic;
         max-width: 320px;
@@ -363,7 +363,7 @@ const I18n = (() => {
         background: var(--cream, #ede8dc); border: 1px solid var(--rule, #c8bfa8);
         border-radius: 20px; padding: 4px 12px;
         box-shadow: 0 2px 8px rgba(26,18,8,0.1);
-        font-family: 'Source Serif 4', Georgia, serif;
+        font-family:var(--font-family-primary);
         font-size: 12px; color: var(--muted, #6b5f4e);
         cursor: pointer; transition: all 0.2s;
       }
@@ -380,7 +380,7 @@ const I18n = (() => {
         position: fixed; top: 58px; right: 12px; z-index: 300;
         background: var(--cream, #ede8dc); border: 1px solid var(--rule, #c8bfa8);
         border-radius: 20px; padding: 4px 12px;
-        font-family: 'Source Serif 4', Georgia, serif;
+        font-family:var(--font-family-primary);
         font-size: 11px; color: var(--muted, #6b5f4e);
         box-shadow: 0 2px 8px rgba(26,18,8,0.1);
       }
@@ -565,8 +565,11 @@ const I18n = (() => {
       }
     });
 
-    // Translate inline styled elements (prompts, instructions inside cards)
-    document.querySelectorAll('[style*="italic"], [style*="uppercase"]').forEach(function(el) {
+    // Translate prompts and instructions inside cards. `.i18n-text` is the opt-in
+    // marker: this used to match on inline style text ([style*="italic"]), which
+    // silently stopped working as soon as an inline style became a class. The style
+    // selectors stay only for markup that has not been converted yet.
+    document.querySelectorAll('.i18n-text, [style*="italic"], [style*="uppercase"]').forEach(function(el) {
       if (el.dataset.i18nSwapped || el.children.length > 1) return;
       var text = el.textContent.trim();
       var spanish = t(text);
