@@ -1144,6 +1144,26 @@ function displaySubmission(data) {
   try { if (data.answers_json) answers = JSON.parse(data.answers_json); } catch(e) {}
   ex.markingData.parsedAnswers = answers;
 
+  // DATA-5: the student app shortens very long answers to fit the sheet cell and
+  // flags it. Tell the teacher so a trimmed answer isn't read as the whole thing.
+  // textContent only: the key names come from the student.
+  var trimNote = document.getElementById('answers-truncated-note');
+  if (!trimNote) {
+    trimNote = document.createElement('div');
+    trimNote.id = 'answers-truncated-note';
+    trimNote.style.cssText = 'display:none;margin:0 0 12px;padding:10px 14px;border:1px solid var(--gold);background:#fff8e6;font-size:13px;';
+    var markArea = document.getElementById('marking-area');
+    markArea.insertBefore(trimNote, markArea.firstChild);
+  }
+  if (answers && answers._truncated) {
+    var cutKeys = Array.isArray(answers._truncated_keys) ? answers._truncated_keys.map(String).join(', ') : '';
+    trimNote.textContent = 'Note: some of this student\u2019s answers were too long to save in full and were shortened' +
+      (cutKeys ? ' (' + cutKeys + ')' : '') + '. The sheet's written-work columns also hold the start of each response.';
+    trimNote.style.display = 'block';
+  } else {
+    trimNote.style.display = 'none';
+  }
+
   // ── Graded badge ──
   var badge = document.getElementById('graded-badge');
   badge.style.display = 'inline-block';
