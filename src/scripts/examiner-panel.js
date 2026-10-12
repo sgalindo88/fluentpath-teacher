@@ -311,6 +311,7 @@ async function loadPlacementTest() {
   document.getElementById('pt-rv-q22').textContent = data.q22_speaking_notes || data.q22 || '(no response)';
   document.getElementById('pt-rv-q23').textContent = data.q23_speaking_notes || data.q23 || '(no response)';
   document.getElementById('pt-rv-q24').textContent = data.q24_speaking_notes || data.q24 || '(no response)';
+  renderPlacementAudio(data.speaking_audio_json);
 
   // Show all cards
   ['pt-reading-card','pt-listening-card','pt-writing-card','pt-speaking-card','pt-results-card'].forEach(id => {
@@ -1349,6 +1350,35 @@ function renderSpeakingAudio(audioJsonStr) {
         : '<span style="color:var(--red);">Could not load audio.</span>';
     });
   }
+}
+
+/**
+ * Placement test: audio players for the Q21-Q24 speaking recordings.
+ * audioJsonStr: '{"q21":"<fileId>","q22":"<fileId>",...}' (from Initial Test Results).
+ * The question ids are a fixed list, never taken from the JSON, so student-supplied
+ * keys cannot reach the DOM; a value must look like a Drive id.
+ */
+function renderPlacementAudio(audioJsonStr) {
+  var audio = null;
+  try { audio = audioJsonStr ? JSON.parse(audioJsonStr) : null; } catch (e) { audio = null; }
+  ['q21', 'q22', 'q23', 'q24'].forEach(function (q) {
+    var old = document.getElementById('pt-audio-' + q);
+    if (old) old.remove();
+    var fileId = audio && typeof audio === 'object' ? audio[q] : null;
+    if (typeof fileId !== 'string' || !/^[A-Za-z0-9_-]{10,100}$/.test(fileId)) return;
+    var rv = document.getElementById('pt-rv-' + q);
+    rv.insertAdjacentHTML('afterend',
+      '<div id="pt-audio-' + q + '" style="margin-bottom:8px;font-size:12px;color:var(--muted);">Loading audio…</div>');
+    fetchAudioBlobUrl(fileId).then(function (blobUrl) {
+      var el = document.getElementById('pt-audio-' + q);
+      if (!el) return;
+      if (blobUrl) el.innerHTML = '<audio controls src="' + blobUrl + '" style="width:100%;max-width:400px;"></audio>';
+      else el.innerHTML = '<span style="color:var(--rust);">Could not load audio.</span>';
+    }).catch(function () {
+      var el = document.getElementById('pt-audio-' + q);
+      if (el) el.innerHTML = '<span style="color:var(--rust);">Could not load audio.</span>';
+    });
+  });
 }
 
 function restoreMarksFromSheetData(data) {
