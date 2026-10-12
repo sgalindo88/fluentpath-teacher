@@ -440,12 +440,12 @@ async function savePlacementToSheets() {
   FP.showSaveOverlay('Saving placement test results…');
   document.getElementById('pt-save-status').textContent = 'Saving...';
   try {
-    await FP.api.postForm(WEBHOOK_URL, payload);
+    await teacherWrite(payload);
     savePTGradedState();
     document.getElementById('pt-save-status').textContent = '✓ Results saved to "Examiner Results" sheet.';
     document.getElementById('pt-save-status').style.color = 'var(--green)';
   } catch(e) {
-    document.getElementById('pt-save-status').textContent = '⚠ Could not reach webhook. Check the URL.';
+    document.getElementById('pt-save-status').textContent = '⚠ NOT saved: ' + e.message + '. Do not rely on this grade until it saves.';
     document.getElementById('pt-save-status').style.color = 'var(--rust)';
   }
   FP.hideSaveOverlay();
@@ -856,7 +856,7 @@ async function saveAttendance() {
   FP.showSaveOverlay('Saving attendance…');
   el.textContent = 'Saving to Google Sheets...'; el.className = 'send-status'; el.style.display = 'block';
   try {
-    await FP.api.postForm(WEBHOOK_URL, {
+    await teacherWrite({
       action: 'save_attendance',
       student_name: ex.studentName,
       attendance_json: JSON.stringify(ex.attendance),
@@ -864,7 +864,7 @@ async function saveAttendance() {
     });
     el.textContent = '✓ Attendance saved to Google Sheets.'; el.className = 'send-status ok';
   } catch(e) {
-    el.textContent = 'Could not save to sheet. Saved locally.'; el.className = 'send-status error';
+    el.textContent = '⚠ NOT saved to the sheet: ' + e.message + '. Kept on this device only.'; el.className = 'send-status error';
   }
   FP.hideSaveOverlay();
   setTimeout(() => el.style.display = 'none', 4000);
@@ -1158,7 +1158,7 @@ function displaySubmission(data) {
   if (answers && answers._truncated) {
     var cutKeys = Array.isArray(answers._truncated_keys) ? answers._truncated_keys.map(String).join(', ') : '';
     trimNote.textContent = 'Note: some of this student\u2019s answers were too long to save in full and were shortened' +
-      (cutKeys ? ' (' + cutKeys + ')' : '') + '. The sheet's written-work columns also hold the start of each response.';
+      (cutKeys ? ' (' + cutKeys + ')' : '') + '. The sheet\u2019s written-work columns also hold the start of each response.';
     trimNote.style.display = 'block';
   } else {
     trimNote.style.display = 'none';
@@ -1293,8 +1293,12 @@ function renderSpeakingAudio(audioJsonStr) {
   if (!audioJsonStr) return;
   let audio;
   try { audio = JSON.parse(audioJsonStr); } catch(e) { return; }
+  if (!audio || typeof audio !== 'object' || Array.isArray(audio)) return;
 
-  const drillKeys = Object.keys(audio).filter(k => !k.includes('_score') && k !== 'conversation').sort();
+  // N-2: `audio` is student-supplied JSON. Keys are never placed in HTML or used
+  // as element ids (the DOM ids below are positional), and a key must look like
+  // one the server could have written.
+  const drillKeys = Object.keys(audio).filter(k => /^[A-Za-z0-9_-]{1,40}$/.test(k) && !k.includes('_score') && k !== 'conversation').sort();
   const convId    = audio['conversation'];
 
   if (drillKeys.length === 0 && !convId) return;
@@ -1311,8 +1315,8 @@ function renderSpeakingAudio(audioJsonStr) {
 
   // Build placeholder UI, then fetch audio in background
   drillKeys.forEach((key, i) => {
-    const score = audio[key + '_score'];
-    const scoreHtml = score != null
+    const score = Number(audio[key + '_score']);
+    const scoreHtml = isFinite(score) && audio[key + '_score'] != null
       ? `<span style="margin-left:12px;font-size:12px;color:var(--forest);font-weight:600;">Accuracy: ${Math.round(score * 100)}%</span>`
       : '';
     const transcriptKey = 'drill_' + key;
@@ -1326,10 +1330,10 @@ function renderSpeakingAudio(audioJsonStr) {
           Drill ${i + 1}${scoreHtml}
         </div>
         ${transcriptHtml}
-        <div id="audio-drill-${key}" style="font-size:12px;color:var(--muted);">Loading audio…</div>
+        <div id="audio-drill-${i}" style="font-size:12px;color:var(--muted);">Loading audio…</div>
       </div>`);
     fetchAudioBlobUrl(audio[key]).then(blobUrl => {
-      const el = document.getElementById('audio-drill-' + key);
+      const el = document.getElementById('audio-drill-' + i);
       if (el) el.innerHTML = blobUrl
         ? `<audio controls src="${blobUrl}" style="width:100%;max-width:400px;"></audio>`
         : '<span style="color:var(--red);">Could not load audio.</span>';
@@ -1620,14 +1624,14 @@ function syncDifficultyToSheet(statusId, successMsg) {
     showStatus(statusId, successMsg + ' (saved locally only)', false);
     return;
   }
-  FP.api.postForm(WEBHOOK_URL, {
+  teacherWrite({
     action: 'update_settings',
     student_name: ex.studentName,
     difficulty_json: buildDifficultyJson()
   }).then(function() {
     showStatus(statusId, successMsg, false);
-  }).catch(function() {
-    showStatus(statusId, successMsg + ' (saved locally; sheet sync failed)', true);
+  }).catch(function(e) {
+    showStatus(statusId, '⚠ Not saved to the sheet (' + e.message + '). The next AI lesson will NOT use this.', true);
   });
 }
 
@@ -1818,7 +1822,7 @@ async function saveToSheet() {
   };
   FP.showSaveOverlay('Saving lesson grades…');
   try {
-    await FP.api.postForm(WEBHOOK_URL, payload);
+    await teacherWrite(payload);
     showStatus('sheet-status', '✓ Grades saved to Google Sheet.', false);
     invalidateSubmissionCache();
 
@@ -1832,7 +1836,7 @@ async function saveToSheet() {
     updateSkillsSnapshot();
     updateDashboardStats();
   } catch(e) {
-    showStatus('sheet-status', '⚠ Could not reach sheet. Check webhook URL.', true);
+    showStatus('sheet-status', '⚠ Grades NOT saved: ' + e.message, true);
   }
   FP.hideSaveOverlay();
 }
@@ -1941,7 +1945,7 @@ async function sendCallLink(requestId) {
   if (!link) { showStatus('call-status-' + requestId, 'Please paste a call link first.', true); return; }
   if (!/^https?:\/\//i.test(link)) { showStatus('call-status-' + requestId, 'Link must start with http:// or https://', true); return; }
   try {
-    await FP.api.postForm(WEBHOOK_URL, { action: 'send_call_link', id: requestId, call_link: link });
+    await teacherWrite({ action: 'send_call_link', id: requestId, call_link: link });
     showStatus('call-status-' + requestId, '✓ Link sent to student.', false);
     setTimeout(loadCallRequests, 500);
   } catch (e) {
@@ -1951,9 +1955,9 @@ async function sendCallLink(requestId) {
 
 async function markCallDone(requestId) {
   try {
-    await FP.api.postForm(WEBHOOK_URL, { action: 'update_call_status', id: requestId, status: 'done' });
+    await teacherWrite({ action: 'update_call_status', id: requestId, status: 'done' });
     setTimeout(loadCallRequests, 500);
-  } catch (e) { /* silent */ }
+  } catch (e) { alert('Could not mark the call done: ' + e.message); }
 }
 
 async function promoteStudent() {
@@ -2006,11 +2010,14 @@ function saveProfile() {
   saveToLocalStorage();
   document.getElementById('sb-student-name').textContent = ex.studentName || 'No student yet';
   document.getElementById('sb-student-level').textContent = ex.studentLevel + ' · ' + getLevelTheme(ex.studentLevel);
-  showStatus('profile-save-status', '✓ Profile saved.', false);
-
-  // Sync settings to Google Sheet
-  if (WEBHOOK_URL && WEBHOOK_URL.startsWith('https://')) {
-    FP.api.postForm(WEBHOOK_URL, {
+  // Sync settings to Google Sheet. The "saved" message waits for the server.
+  if (!WEBHOOK_URL || !WEBHOOK_URL.startsWith('https://')) {
+    showStatus('profile-save-status', 'Saved on this device only (no webhook configured).', true);
+    return;
+  }
+  showStatus('profile-save-status', 'Saving…', false);
+  {
+    teacherWrite({
       action: 'update_settings',
       student_name: ex.studentName,
       teacher_name: ex.teacherName,
@@ -2027,8 +2034,10 @@ function saveProfile() {
       notify_on_test: ex.notifyOnTest || false,
       notify_on_submission: ex.notifyOnSubmission || false,
       notify_on_call_request: ex.notifyOnCallRequest !== false,
-    }).catch(function() {
-      showStatus('profile-save-status', 'Saved locally. Could not sync to Google Sheet.', true);
+    }).then(function() {
+      showStatus('profile-save-status', '✓ Profile saved.', false);
+    }).catch(function(e) {
+      showStatus('profile-save-status', '⚠ NOT saved to the sheet: ' + e.message + '. Level and access changes have not reached the student.', true);
     });
   }
 }
@@ -2259,6 +2268,22 @@ function loadFromLocalStorage() {
 // ══════════════════════════════════════════════════════
 // UTILS
 // ══════════════════════════════════════════════════════
+/**
+ * N-5: every teacher write goes through here. postForm is no-cors, so the page
+ * could never tell an expired 12-hour session or a "Server busy" lock timeout
+ * from success, and then reported "saved". postRead returns the server's own
+ * answer; anything but { result: 'success' } throws with the server's message.
+ * (An Unauthorized reply is handled by FP.api itself: it clears the session and
+ * returns to login.)
+ */
+async function teacherWrite(payload, options) {
+  var res = await FP.api.postRead(WEBHOOK_URL, payload, options);
+  if (!res || res.result !== 'success') {
+    throw new Error((res && (res.message || res.error)) || 'The server did not confirm the save');
+  }
+  return res;
+}
+
 function showStatus(id, msg, isError) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -2455,7 +2480,7 @@ function toggleLibraryPreview(entryId) {
 function deleteLibraryEntry(entryId, level, day) {
   if (!confirm('Soft-delete this lesson from the library?\n\nIt will no longer be served to students. Recoverable by editing the sheet directly (set is_active back to "true").')) return;
 
-  FP.api.postForm(WEBHOOK_URL, { action: 'delete_library_entry', id: entryId })
+  teacherWrite({ action: 'delete_library_entry', id: entryId })
     .then(function() {
       // Update local cache so the modal and grid refresh immediately
       if (libData && libData.groups) {
