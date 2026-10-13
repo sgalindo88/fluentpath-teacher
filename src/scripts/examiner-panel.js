@@ -583,6 +583,7 @@ function initApp() {
   fetchDashboardData();
   // Load pending call requests
   loadCallRequests();
+  loadFocusRequests();
   // Refresh call requests when tab becomes visible
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) loadCallRequests();
@@ -846,6 +847,74 @@ function openStudentCall(name) {
     return false; // handled here
   }
   return true; // another student: follow the link, which opens their profile at the card
+}
+
+/** From a pending-focus notice: show that student's request in Adjust Difficulty. */
+function openStudentFocus(name) {
+  if (String(name).toLowerCase().trim() === String(ex.studentName || '').toLowerCase().trim()) {
+    showPanel('difficulty');
+    return false;
+  }
+  return true;
+}
+
+// ── Topics a student asked to practise (they suggest, the teacher decides) ──
+var focusPendingCache = [];
+var focusStudentCache = [];
+
+function loadFocusRequests() {
+  if (!WEBHOOK_URL || WEBHOOK_URL.indexOf('https://') !== 0) return;
+  FP.api.get(WEBHOOK_URL + '?action=get_focus_requests')
+    .then(function (d) { focusPendingCache = (d && d.requests) || []; renderDashboardFocusRequests(); })
+    .catch(function () { /* the notice just stays hidden */ });
+  if (ex.studentName) {
+    FP.api.get(WEBHOOK_URL + '?action=get_focus_requests&student=' + encodeURIComponent(ex.studentName))
+      .then(function (d) { focusStudentCache = (d && d.requests) || []; renderStudentFocusRequest(); })
+      .catch(function () { /* keep the empty note */ });
+  }
+}
+
+function renderDashboardFocusRequests() {
+  var c = document.getElementById('dash-focus-requests');
+  if (!c) return;
+  if (!focusPendingCache.length) { c.style.display = 'none'; c.innerHTML = ''; return; }
+  c.style.display = 'block';
+  c.innerHTML = '<div class="card call-card" role="status"><div class="card-label">' + FP.icon('tune', { size: 'sm' }) + ' Topic requests waiting for you</div><ul>' +
+    focusPendingCache.map(function (r) {
+      return '<li><strong>' + escHtml(r.student_name) + '</strong> would like: ' + escHtml(r.topics_en.join(', ') || 'a note') +
+        ' · <a class="link" href="?student=' + encodeURIComponent(r.student_name) + '&panel=difficulty" onclick="return openStudentFocus(\'' + escHtml(r.student_name) + '\')">review</a></li>';
+    }).join('') + '</ul></div>';
+}
+
+function renderStudentFocusRequest() {
+  var el = document.getElementById('focus-request-content');
+  if (!el) return;
+  var r = focusStudentCache.filter(function (x) { return x.status !== 'replaced'; })[0];
+  if (!r) { el.innerHTML = 'No request from this student.'; return; }
+  var when = r.requested_at ? formatLessonDate(r.requested_at) : '';
+  var chips = r.topics_en.map(function (t) { return '<span class="chip">' + escHtml(t) + '</span>'; }).join(' ');
+  var status = { pending: 'Waiting for your decision', approved: 'Approved. Used for this student\'s next generated lessons.', declined: 'Declined. Not used.' }[r.status] || r.status;
+  el.innerHTML =
+    '<p class="u-mb-3"><strong>' + escHtml(ex.studentName) + '</strong> asked to practise' + (when ? ' (' + escHtml(when) + ')' : '') + ':</p>' +
+    '<div class="row-wrap u-mb-3">' + (chips || '<em>no topics chosen</em>') + '</div>' +
+    (r.note ? '<p class="u-mb-3">In their words: &ldquo;' + escHtml(r.note) + '&rdquo;</p>' : '') +
+    '<p class="u-mb-3 u-sm u-muted">' + escHtml(status) + '</p>' +
+    '<div class="row-wrap">' +
+      (r.status !== 'approved' ? '<button class="btn-primary" onclick="reviewFocus(\'' + escHtml(r.id) + '\', \'approve\', this)">Approve</button>' : '') +
+      (r.status !== 'declined' ? '<button class="btn-secondary" onclick="reviewFocus(\'' + escHtml(r.id) + '\', \'decline\', this)">Decline</button>' : '') +
+    '</div><div class="send-status" id="focus-review-status" role="status"></div>';
+}
+
+async function reviewFocus(id, decision, btn) {
+  if (btn) { btn.disabled = true; }
+  try {
+    await teacherWrite({ action: 'review_focus', id: id, decision: decision });
+    FP.ui.toast(decision === 'approve' ? 'Approved. The next generated lessons will use these topics.' : 'Declined.', { variant: 'success' });
+    loadFocusRequests();
+  } catch (e) {
+    if (btn) btn.disabled = false;
+    showStatus('focus-review-status', '⚠ Not saved: ' + e.message, true);
+  }
 }
 
 function switchToStudent(name) {
@@ -2382,6 +2451,7 @@ window.addEventListener('DOMContentLoaded', () => {
     panelLoaded = {}; // force all panels to reload for the new student
     saveToLocalStorage();
     initApp();
+    if (urlParams.get('panel') === 'difficulty') showPanel('difficulty');
     if (urlParams.get('panel') === 'call') {
       showPanel('profile');
       var vc = document.getElementById('prof-video-card');

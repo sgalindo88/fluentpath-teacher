@@ -112,6 +112,7 @@
 
         <!-- Pending call requests (hidden when empty) -->
         <div id="dash-call-requests" class="u-mb-6" style="display:none;"></div>
+        <div id="dash-focus-requests" class="u-mb-6" style="display:none;"></div>
 
         <div class="stat-grid">
           <div class="stat-box gold">
@@ -470,6 +471,11 @@
             <button class="btn-secondary" onclick="resetDifficulty()">Reset to Default</button>
           </div>
           <div class="send-status" id="diff-save-status"></div>
+        </div>
+
+        <div class="card card-top blue" id="focus-request-card">
+          <div class="card-label">WHAT THE STUDENT ASKED TO PRACTISE</div>
+          <div class="empty-note" id="focus-request-content">No request from this student.</div>
         </div>
 
         <div class="card">
