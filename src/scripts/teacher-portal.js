@@ -86,7 +86,7 @@
           : 'The email could not be sent, so ' + (pw ? 'give them the password you typed, or ' : '') +
             'ask them to tap "Forgot password?" on the log in page. ';
         st.innerHTML = 'Account created for ' + escHtml(name) + '. ' + next +
-          '<a class="link" href="src/examiner-panel.html?student=' + encodeURIComponent(name) + '">Open their dashboard</a>' +
+          '<a class="link" href="src/examiner-panel?student=' + encodeURIComponent(name) + '">Open their dashboard</a>' +
           ' to switch on free course access (Student Profile).';
         document.getElementById('caName').value = '';
         document.getElementById('caEmail').value = '';
@@ -203,7 +203,7 @@
           '<div class="inbox-item__main"><strong>' + escHtml(st.name) + '</strong> <span class="inbox-meta">' + escHtml(st.email) + '</span></div>' +
           '<div class="inbox-actions">' +
           '<button type="button" class="fp-btn fp-btn--primary" data-act="restore">Restore</button>' +
-          '<a class="fp-btn fp-btn--secondary" href="src/examiner-panel.html?student=' + encodeURIComponent(st.name) + '">Open</a></div></li>';
+          '<a class="fp-btn fp-btn--secondary" href="src/examiner-panel?student=' + encodeURIComponent(st.name) + '">Open</a></div></li>';
       }).join('');
     } catch (e) { box.classList.add('fp-hidden'); }
   }
@@ -238,7 +238,7 @@
       data.students.forEach(function(s) {
         var card = document.createElement('a');
         card.className = 'student-card';
-        card.href = 'src/examiner-panel.html?student=' + encodeURIComponent(s.name);
+        card.href = 'src/examiner-panel?student=' + encodeURIComponent(s.name);
         card.innerHTML =
           '<div class="student-name">' + escHtml(s.name) + '</div>' +
           '<span class="student-arrow">' + FP.icon('arrow_right_alt') + '</span>';

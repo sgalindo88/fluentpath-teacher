@@ -2,6 +2,12 @@
 
 The teacher site is released together with the student site and the backend, and the version numbers are the **backend** versions. The complete notes for each release (backend, student app and teacher site) are in the `fluentpath` repo's `CHANGELOG.md`; this file lists what changed **here**.
 
+## [0.59.0] - 2026-10-13
+- **Clean URLs:** the dashboard is `/src/examiner-panel?student=…` (no `.html`); the portal's links, the "log in again" redirect and the emailed links use it. Old `.html` addresses keep working and are tidied in the address bar.
+
+## [0.58.0] - 2026-10-13
+- No teacher-site change (the lesson fallback work was student-side and backend).
+
 ## [0.57.0] - 2026-10-13
 - **Archive and delete a student** (Student Profile, "Archive or delete this student"). Archive and Restore with progress messages; Delete permanently needs the typed name. The portal lists "Archived students" with Restore and Open. Fixes after device testing: space above the archive card, all three buttons switch off while working, the pressed one says "Archiving…", "Restoring…" or "Deleting…", a spinner status line, and a clear message before returning to the portal.
 - Shared fixes: header buttons have room above and below; the password dialogs (set, forgot, change, "Password updated") have proper spacing.

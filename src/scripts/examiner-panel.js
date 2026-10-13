@@ -2546,13 +2546,13 @@ window.addEventListener('DOMContentLoaded', () => {
   // Teacher session guard — the dashboard was previously protected only by
   // being unlinked. Require a teacher session or bounce to the login portal.
   if (!(FP.getSession && FP.getSession()) || localStorage.getItem(FP.KEYS.ROLE) !== 'teacher') {
-    location.href = '../teacher.html';
+    location.href = '../';
     return;
   }
 
   const hasSaved = loadFromLocalStorage();
 
-  // Check URL param for student name (from teacher.html student picker)
+  // Check URL param for student name (from the portal's student picker)
   var urlParams = new URLSearchParams(window.location.search);
   var urlStudent = (urlParams.get('student') || '').trim();
 
