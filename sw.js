@@ -38,7 +38,6 @@ var APP_SHELL = [
   './src/scripts/teacher-portal.js',
   './src/scripts/examiner-panel.js',
   './src/scripts/call-request.js',
-  './src/scripts/i18n.js',
   './src/scripts/password-reset.js',
   './src/styles/tokens.css',
   './src/styles/theme.css',

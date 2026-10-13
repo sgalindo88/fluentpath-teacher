@@ -7,7 +7,7 @@ const WEBHOOK_URL = FP.WEBHOOK_URL;
 // STATE
 // ══════════════════════════════════════════════════════
 let ex = {
-  teacherName: 'Sebastian Galindo',
+  teacherName: '',      // TCH-6: set in Student Profile (kept on this device), never hardcoded
   studentName: '',
   studentLevel: 'B1',
   studentMonth: 1,
@@ -80,6 +80,8 @@ function resetStudentState(newStudentName) {
   ex.currentWeek = 1;
   ex.ptGraded = null;
   // Clear per-student note fields from localStorage
+  // TCH-1: the cached lesson marks belong to the previous student too
+  try { localStorage.removeItem('fp_lesson_marks'); } catch(e) {}
   ['today_notes', 'absence_notes', 'writing_feedback', 'speaking_feedback', 'overall_feedback', 'ai_instructions'].forEach(function(k) {
     try { localStorage.removeItem('fp_' + k); } catch(e) {}
   });
@@ -87,7 +89,7 @@ function resetStudentState(newStudentName) {
 
 function setupExaminer() {
   var student = document.getElementById('setup-student').value.trim();
-  if (!student) { alert('Please enter the student\'s name.'); return; }
+  if (!student) { FP.ui.toast('Please enter the student\'s name.', { variant: 'warning' }); document.getElementById('setup-student').focus(); return; }
 
   ex.studentName  = student;
   saveToLocalStorage();
@@ -129,20 +131,23 @@ function updatePTResults() {
   document.getElementById('pt-listening-score').innerHTML = l + ' <span>/ 15</span>';
   document.getElementById('pt-writing-score').innerHTML = w + ' <span>/ 25</span>';
   document.getElementById('pt-speaking-score').innerHTML = s + ' <span>/ 20</span>';
-  document.getElementById('pt-res-total').innerHTML = total + ' <span style="font-size:18px;color:var(--muted);">/ ' + FP.TEST_TOTAL_MARKS + '</span>';
+  document.getElementById('pt-res-total').innerHTML = total + ' <span class="of">/ ' + FP.TEST_TOTAL_MARKS + '</span>';
   document.getElementById('pt-res-cefr').textContent = cefr;
-  document.getElementById('pt-res-reading').innerHTML = r + ' <span style="font-size:13px;color:var(--muted);">/ 20</span>';
-  document.getElementById('pt-res-writing').innerHTML = w + ' <span style="font-size:13px;color:var(--muted);">/ 25</span>';
-  document.getElementById('pt-res-listening').innerHTML = l + ' <span style="font-size:13px;color:var(--muted);">/ 15</span>';
-  document.getElementById('pt-res-speaking').innerHTML = s + ' <span style="font-size:13px;color:var(--muted);">/ 20</span>';
+  document.getElementById('pt-res-reading').innerHTML = r + ' <span class="of">/ 20</span>';
+  document.getElementById('pt-res-writing').innerHTML = w + ' <span class="of">/ 25</span>';
+  document.getElementById('pt-res-listening').innerHTML = l + ' <span class="of">/ 15</span>';
+  document.getElementById('pt-res-speaking').innerHTML = s + ' <span class="of">/ 20</span>';
 
   // Debounced save of graded state (notes trigger this on every keystroke)
   clearTimeout(_ptSaveTimer);
   _ptSaveTimer = setTimeout(function() { savePTGradedState(); }, 2000);
 }
 
-function resetPTGradingData() {
-  if (!confirm('Reset all placement test grading data? Slider scores, notes, and feedback will be cleared.')) return;
+async function resetPTGradingData() {
+  if (!await confirmDialog({
+    title: 'Reset the placement test grading?',
+    message: 'Slider scores, notes and feedback will be cleared.',
+    confirmLabel: 'Reset grading', danger: true })) return;
   ex.ptGraded = null;
   // Reset ptScores
   ['q11','q12','q13','q14','q20','q21','q22','q23','q24'].forEach(function(q) { ptScores[q] = 0; });
@@ -197,19 +202,21 @@ function updatePTSubCriteria() {
   if (!_ptRestoring) savePTGradedState();
 }
 
+/** One answer chip: icon + question + answer + score, in words and icons as well as colour. kind: 'ok' | 'bad' | '' */
+function chipHtml(kind, iconName, idText, answerText, scoreText) {
+  return '<div class="chip' + (kind ? ' is-' + kind : '') + '">' +
+    (iconName ? FP.icon(iconName, { size: 'sm' }) : '') +
+    '<span class="chip__id">' + idText + '</span>' +
+    (answerText ? '<span>' + answerText + '</span>' : '') +
+    (scoreText ? '<span class="chip__score">' + scoreText + '</span>' : '') +
+    '</div>';
+}
+
 function buildPTChip(qId, submitted, correct, marks) {
   const isCorrect = submitted && submitted.toUpperCase() === correct.toUpperCase();
-  const bg = !submitted ? 'var(--cream)' : isCorrect ? 'var(--green-bg)' : '#fdecea';
-  const border = !submitted ? 'var(--rule)' : isCorrect ? 'var(--green)' : 'var(--rust)';
-  const icon = !submitted ? '○' : isCorrect ? '✓' : '✗';
-  const color = !submitted ? 'var(--muted)' : isCorrect ? 'var(--green)' : 'var(--rust)';
-  return '<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:' + bg + ';border:1px solid ' + border + ';font-size:12px;border-radius:3px;">' +
-    '<span style="color:' + color + ';font-weight:600;">' + icon + '</span> ' +
-    '<span style="font-weight:600;">' + qId.toUpperCase() + '</span> ' +
-    (submitted ? submitted.toUpperCase() : '—') +
-    (isCorrect ? ' <span style="color:var(--green);font-size:11px;">' + marks + '/' + marks + '</span>' : '') +
-    (!submitted ? '' : !isCorrect ? ' <span style="color:var(--rust);font-size:11px;">0/' + marks + '</span>' : '') +
-    '</div>';
+  if (!submitted) return chipHtml('', '', qId.toUpperCase(), '—', '');
+  return chipHtml(isCorrect ? 'ok' : 'bad', isCorrect ? 'check_small' : 'close_small',
+    qId.toUpperCase(), escHtml(submitted.toUpperCase()), (isCorrect ? marks : 0) + '/' + marks);
 }
 
 async function loadPlacementTest() {
@@ -235,7 +242,7 @@ async function loadPlacementTest() {
       found: true,
       candidate_name: name,
       test_date: new Date().toISOString().split('T')[0],
-      mcq_answers: 'Q1: B ✓ Q2: C ✓ Q3: A ✗ (correct: C) Q4: C ✓ Q5: B ✓ Q6: A ✓ Q7: C ✓ Q8: B ✓ Q9: B ✓ Q10: B ✓ Q15: B ✓ Q16: C ✓ Q17: A ✗ (correct: C) Q18: C ✓ Q19: B,C — 2/2 marks',
+      mcq_answers: 'Q1: B right · Q2: C right · Q3: A wrong (correct: C) · Q4: C right · Q5: B right · Q6: A right · Q7: C right · Q8: B right · Q9: B right · Q10: B right · Q15: B right · Q16: C right · Q17: A wrong (correct: C) · Q18: C right · Q19: B,C — 2/2 marks',
       q11_passive_voice: 'The meal was prepared by the chef in less than ten minutes.',
       q12_combined_sentence: 'Although it was raining, we decided to go for a walk.',
       q13_error_correction: 'She does not have any money to buy a new phone.',
@@ -248,7 +255,7 @@ async function loadPlacementTest() {
     };
     document.getElementById('pt-load-status').textContent = 'Demo data loaded (no webhook configured or no test found).';
   } else {
-    document.getElementById('pt-load-status').textContent = '✓ Test data loaded for ' + escHtml(name) + '.';
+    showStatus('pt-load-status', 'Test data loaded for ' + name + '.', false);
   }
 
   // Parse MCQ answers from the mcq_answers summary string
@@ -297,8 +304,7 @@ async function loadPlacementTest() {
   const q19set = new Set(q19answers);
   const q19correct = q19set.size === 2 && [...PT_Q19_CORRECT].every(x => q19set.has(x));
   ptScores.listening['q19'] = q19correct ? 2 : (q19answers.some(x => PT_Q19_CORRECT.has(x)) ? 1 : 0);
-  listeningHtml += '<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:' + (q19correct ? 'var(--green-bg)' : '#fdecea') + ';border:1px solid ' + (q19correct ? 'var(--green)' : 'var(--rust)') + ';font-size:12px;border-radius:3px;">' +
-    '<span style="color:' + (q19correct ? 'var(--green)' : 'var(--rust)') + ';font-weight:600;">' + (q19correct ? '✓' : '✗') + '</span> Q19 ' + q19answers.join(',') + ' <span style="font-size:11px;">' + ptScores.listening['q19'] + '/2</span></div>';
+  listeningHtml += chipHtml(q19correct ? 'ok' : 'bad', q19correct ? 'check_small' : 'close_small', 'Q19', escHtml(q19answers.join(',')), ptScores.listening['q19'] + '/2');
   document.getElementById('pt-listening-chips').innerHTML = listeningHtml;
 
   // Populate response viewers (try multiple possible field name formats)
@@ -439,15 +445,12 @@ async function savePlacementToSheets() {
     notes_q24: document.getElementById('pt-notes-q24').value || '',
   };
   FP.showSaveOverlay('Saving placement test results…');
-  document.getElementById('pt-save-status').textContent = 'Saving...';
   try {
     await teacherWrite(payload);
     savePTGradedState();
-    document.getElementById('pt-save-status').textContent = '✓ Results saved to "Examiner Results" sheet.';
-    document.getElementById('pt-save-status').style.color = 'var(--green)';
+    showStatus('pt-save-status', 'Results saved to the "Examiner Results" sheet.', false);
   } catch(e) {
-    document.getElementById('pt-save-status').textContent = '⚠ NOT saved: ' + e.message + '. Do not rely on this grade until it saves.';
-    document.getElementById('pt-save-status').style.color = 'var(--rust)';
+    showStatus('pt-save-status', 'NOT saved: ' + e.message + '. Do not rely on this grade until it saves.', true);
   }
   FP.hideSaveOverlay();
 }
@@ -462,12 +465,13 @@ function initApp() {
   document.getElementById('sb-student-day').textContent = `Month ${ex.studentMonth} · Day ${getCurrentDay()}`;
 
   // Populate dashboard
-  document.getElementById('dash-teacher-name').textContent = ex.teacherName;
+  document.getElementById('dash-greeting-name').textContent = ex.teacherName ? ', ' + ex.teacherName : '';
   document.getElementById('dash-student-summary').textContent = ex.studentName
     ? `Tracking ${ex.studentName}'s progress through the ${ex.studentLevel} course.`
     : 'Set up a student profile to start tracking.';
 
   // Profile form
+  document.getElementById('prof-teacher').value       = ex.teacherName || '';
   document.getElementById('prof-student-name').value  = ex.studentName;
   document.getElementById('prof-level').value         = ex.studentLevel;
   document.getElementById('prof-month').value         = ex.studentMonth;
@@ -659,7 +663,6 @@ function loadPanelData(id) {
     case 'placementtest': loadPlacementTest(); break;
     case 'marking':       autoLoadSubmission(); break;
     case 'library':       loadLibraryPanel(); break;
-    case 'approvals':     loadApprovalQueue(); break;
     // dashboard, attendance, difficulty, progress, weekly, profile
     // are populated by initApp + fetchDashboardData (already loaded)
   }
@@ -682,20 +685,20 @@ var classSortAsc = true;
 async function loadClassOverview() {
   var container = document.getElementById('class-table-container');
   if (!WEBHOOK_URL || !WEBHOOK_URL.includes('script.google.com')) {
-    container.innerHTML = '<div style="color:var(--muted);font-style:italic;">No webhook configured.</div>';
+    container.innerHTML = '<div class="empty-note">No webhook configured.</div>';
     return;
   }
-  container.innerHTML = '<div style="color:var(--muted);font-style:italic;">Loading class data...</div>';
+  container.innerHTML = '<div class="empty-note">Loading class data...</div>';
   try {
     var data = await FP.api.get(WEBHOOK_URL + '?action=get_class_overview', { timeout: 30000 });
     if (data && data.found && Array.isArray(data.students)) {
       classData = data.students;
       renderClassTable();
     } else {
-      container.innerHTML = '<div style="color:var(--muted);">No students found.</div>';
+      container.innerHTML = '<div class="empty-note">No students found.</div>';
     }
   } catch (e) {
-    container.innerHTML = '<div style="color:var(--rust);">Could not load class data: ' + escHtml(e.message) + '</div>';
+    container.innerHTML = '<div class="err-note">Could not load class data: ' + escHtml(e.message) + '</div>';
   }
 }
 
@@ -718,17 +721,19 @@ function renderClassTable() {
   });
 
   if (rows.length === 0) {
-    container.innerHTML = '<div style="color:var(--muted);font-style:italic;">' +
+    container.innerHTML = '<div class="empty-note">' +
       (filterAttention ? 'No students need attention right now.' : 'No students registered yet.') + '</div>';
     return;
   }
 
   var arrow = classSortAsc ? ' ▲' : ' ▼';
   function th(key, label) {
-    return '<th onclick="sortClassTable(\'' + key + '\')">' + label + (classSortKey === key ? arrow : '') + '</th>';
+    var on = classSortKey === key;
+    return '<th aria-sort="' + (on ? (classSortAsc ? 'ascending' : 'descending') : 'none') + '">' +
+      '<button type="button" class="th-sort" onclick="sortClassTable(\'' + key + '\')">' + label + (on ? '<span aria-hidden="true">' + arrow + '</span>' : '') + '</button></th>';
   }
 
-  var html = '<table class="class-table"><thead><tr>' +
+  var html = '<div class="table-scroll"><table class="class-table"><thead><tr>' +
     th('name', 'Student') +
     th('level', 'Level') +
     th('days_completed', 'Progress') +
@@ -745,13 +750,13 @@ function renderClassTable() {
       '<td>' + escHtml(s.level || '—') + '</td>' +
       '<td><div class="class-progress-bar"><div class="class-progress-fill" style="width:' + pct + '%;"></div></div>' + s.days_completed + '/' + FP.COURSE_DAYS + '</td>' +
       '<td>' + (s.last_active ? formatLessonDate(s.last_active) : '—') + '</td>' +
-      '<td>' + (s.ungraded > 0 ? '<strong style="color:var(--rust);">' + s.ungraded + '</strong>' : '0') + '</td>' +
+      '<td>' + (s.ungraded > 0 ? '<strong class="bad-text">' + s.ungraded + '</strong>' : '0') + '</td>' +
       '<td>' + s.attendance_pct + '%</td>' +
-      '<td><button class="btn-secondary" style="font-size:11px;padding:4px 10px;" onclick="event.stopPropagation();switchToStudent(\'' + escHtml(s.name) + '\')">Open</button></td>' +
+      '<td><button class="btn-secondary btn-small" onclick="event.stopPropagation();switchToStudent(\'' + escHtml(s.name) + '\')">Open</button></td>' +
       '</tr>';
   });
 
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
   container.innerHTML = html;
 }
 
@@ -813,24 +818,27 @@ function updateRecentActivity() {
   // Combine lesson records and recent marking data
   const items = ex.lessonRecords.slice().reverse().slice(0, 5);
   if (items.length === 0) {
-    container.innerHTML = '<div style="font-size:14px;color:var(--muted);font-style:italic;">No submissions yet. They will appear here when your student completes a lesson.</div>';
+    container.innerHTML = '<div class="empty-note">No submissions yet. They will appear here when your student completes a lesson.</div>';
     return;
   }
 
   container.innerHTML = items.map(r => {
     const score = r.writingScore != null ? (r.writingScore + (r.speakingScore || 0)) + '/45' : 'Ungraded';
-    const attended = r.attended ? '<span style="color:var(--green);font-weight:600;">Present</span>' : '<span style="color:var(--rust);">Absent</span>';
-    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--cream);">' +
+    const attended = r.attended ? '<span class="ok-text">Present</span>' : '<span class="bad-text">Absent</span>';
+    return '<div class="act-row">' +
       '<div><strong>Day ' + escHtml(String(r.day)) + '</strong>' +
-      (r.topic ? ' <span style="color:var(--muted);font-size:13px;">· ' + escHtml(r.topic) + '</span>' : '') + '</div>' +
-      '<div style="display:flex;gap:12px;font-size:13px;">' + attended +
-      ' <span style="font-weight:600;">' + escHtml(score) + '</span></div></div>';
+      (r.topic ? ' <span class="u-sm u-muted">· ' + escHtml(r.topic) + '</span>' : '') + '</div>' +
+      '<div class="act-meta">' + attended +
+      ' <span class="u-strong">' + escHtml(score) + '</span></div></div>';
   }).join('');
 }
 
 // ══════════════════════════════════════════════════════
 // ATTENDANCE
 // ══════════════════════════════════════════════════════
+/** A check mark, announced as "Done". */
+const DONE_ICON = FP.icon('check_small', { size: 'sm', label: 'Done' });
+
 function buildAttendanceGrid() {
   const grid = document.getElementById('attend-grid');
   const today = getCurrentDay();
@@ -840,7 +848,10 @@ function buildAttendanceGrid() {
     const isToday = d === today;
     const cell = document.createElement('div');
     cell.className = 'attend-cell' + (status === 'present' ? ' present' : status === 'absent' ? ' absent' : '') + (isToday ? ' today' : '');
-    cell.innerHTML = `<span>${status === 'present' ? '✓' : status === 'absent' ? '✗' : '·'}</span><span class="ac-num">D${d}</span>`;
+    cell.innerHTML = `<span>${status === 'present' ? FP.icon('check_small', { size: 'sm' }) : status === 'absent' ? FP.icon('close_small', { size: 'sm' }) : '·'}</span><span class="ac-num">Day ${d}</span>`;
+    cell.setAttribute('role', 'button'); cell.tabIndex = 0;
+    cell.setAttribute('aria-label', 'Day ' + d + ': ' + (status === 'present' ? 'present' : status === 'absent' ? 'absent' : 'not marked') + (isToday ? ' (today)' : ''));
+    cell.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleAttendance(d); } };
     cell.onclick = () => toggleAttendance(d);
     grid.appendChild(cell);
   }
@@ -870,13 +881,11 @@ async function saveAttendance() {
   const el = document.getElementById('attend-save-status');
 
   if (!WEBHOOK_URL || !WEBHOOK_URL.includes('script.google.com') || !ex.studentName) {
-    el.textContent = '✓ Attendance saved locally.'; el.className = 'send-status ok'; el.style.display = 'block';
-    setTimeout(() => el.style.display = 'none', 3000);
+    showStatus('attend-save-status', 'Attendance saved on this device.', false);
     return;
   }
 
   FP.showSaveOverlay('Saving attendance…');
-  el.textContent = 'Saving to Google Sheets...'; el.className = 'send-status'; el.style.display = 'block';
   try {
     await teacherWrite({
       action: 'save_attendance',
@@ -884,149 +893,11 @@ async function saveAttendance() {
       attendance_json: JSON.stringify(ex.attendance),
       absence_notes: document.getElementById('absence-notes')?.value || ''
     });
-    el.textContent = '✓ Attendance saved to Google Sheets.'; el.className = 'send-status ok';
+    showStatus('attend-save-status', 'Attendance saved to Google Sheets.', false);
   } catch(e) {
-    el.textContent = '⚠ NOT saved to the sheet: ' + e.message + '. Kept on this device only.'; el.className = 'send-status error';
+    showStatus('attend-save-status', 'NOT saved to the sheet: ' + e.message + '. Kept on this device only.', true);
   }
   FP.hideSaveOverlay();
-  setTimeout(() => el.style.display = 'none', 4000);
-}
-
-// ══════════════════════════════════════════════════════
-// APPROVAL QUEUE
-// ══════════════════════════════════════════════════════
-async function loadApprovalQueue() {
-  const container = document.getElementById('approval-queue');
-
-  // In demo: show demo pending lessons
-  if (!WEBHOOK_URL || WEBHOOK_URL.includes('script.google.com') === false) {
-    // Show a demo pending lesson
-    ex.pendingLessons = [
-      { id: 'demo-1', studentName: ex.studentName || 'Student', level: ex.studentLevel, date: new Date().toISOString().split('T')[0], day: getCurrentDay(), status: 'pending', topic: 'Daily Communication at Work', content: getDemoLessonPreview() }
-    ];
-    renderApprovalQueue();
-    updateDashboardStats();
-    return;
-  }
-
-  container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-style:italic;">Loading…<div class="spinner"></div></div>';
-
-  try {
-    const url = WEBHOOK_URL + '?action=get_pending&teacher_code=' + encodeURIComponent(ex.teacherCode);
-    const data = await FP.api.get(url);
-    ex.pendingLessons = data.lessons || [];
-    renderApprovalQueue();
-  } catch(e) {
-    container.innerHTML = '<div style="font-size:14px;color:var(--muted);font-style:italic;">Could not load from sheet. Using demo data.</div>';
-  }
-  updateDashboardStats();
-}
-
-function renderApprovalQueue() {
-  const container = document.getElementById('approval-queue');
-  if (ex.pendingLessons.length === 0) {
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-style:italic;"><div style="font-size:32px;margin-bottom:12px;">✓</div>No pending lessons. All caught up!</div>';
-    return;
-  }
-
-  container.innerHTML = ex.pendingLessons.map(l => `
-    <div class="approval-item ${l.status === 'approved' ? 'approved' : l.status === 'rejected' ? 'rejected' : ''}" id="ai-${escHtml(l.id)}">
-      <div class="ai-info">
-        <div class="ai-name">${escHtml(l.studentName || ex.studentName)} · <span style="color:var(--gold);">${escHtml(l.level)}</span></div>
-        <div class="ai-meta">Day ${escHtml(String(l.day))} · ${escHtml(l.date)} · Topic: <em>${escHtml(l.topic || 'Not yet generated')}</em></div>
-        <div style="margin-top:4px;"><span class="pill ${escHtml(l.status || 'pending')}">${escHtml(l.status || 'pending')}</span></div>
-      </div>
-      <div class="ai-actions">
-        <button class="btn-preview" onclick="toggleLessonPreview('${escHtml(l.id)}')">👁 Preview</button>
-        ${l.status !== 'approved' ? `<button class="btn-approve" onclick="approveLesson('${escHtml(l.id)}')">✓ Approve</button>` : ''}
-        ${l.status !== 'rejected' ? `<button class="btn-reject" onclick="rejectLesson('${escHtml(l.id)}')">✗ Reject</button>` : ''}
-      </div>
-    </div>
-    <div class="lesson-preview" id="preview-${escHtml(l.id)}">
-      ${renderLessonPreviewContent(l)}
-    </div>
-  `).join('');
-}
-
-function getDemoLessonPreview() {
-  return {
-    objective: 'Students will be able to communicate clearly about scheduling and appointments at work.',
-    vocabulary: ['appointment /əˈpɔɪntmənt/ — a meeting at a set time', 'schedule /ˈʃedjuːl/ — a plan or timetable', 'available /əˈveɪləbəl/ — free to use or meet'],
-    listeningText: 'Hi Sarah, this is Tom from HR. I\'m calling to confirm our meeting tomorrow at 2pm. Please let me know if you need to reschedule.',
-    speakingDrill: 'Could we reschedule for Thursday morning?',
-    writingPrompt: 'Write an email to your manager asking for a day off next week.',
-  };
-}
-
-function renderLessonPreviewContent(l) {
-  const c = l.content || {};
-  return `
-    <div style="background:white;border:1px solid var(--rule);border-top:none;padding:20px;margin-bottom:12px;">
-      <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;font-weight:600;color:var(--muted);margin-bottom:12px;">LESSON CONTENT PREVIEW</div>
-
-      <div class="lp-section"><div class="lp-label">OBJECTIVE</div><div class="lp-body">${escHtml(c.objective || 'Loading...')}</div></div>
-      <div class="lp-section"><div class="lp-label">VOCABULARY</div><div class="lp-body">${Array.isArray(c.vocabulary) ? c.vocabulary.map(v => '<div>• ' + escHtml(v) + '</div>').join('') : escHtml(c.vocabulary || '...')}</div></div>
-      <div class="lp-section"><div class="lp-label">LISTENING TEXT</div><div class="lp-body"><em>"${escHtml(c.listeningText || '...')}"</em></div></div>
-      <div class="lp-section"><div class="lp-label">SPEAKING DRILL</div><div class="lp-body">"${escHtml(c.speakingDrill || '...')}"</div></div>
-      <div class="lp-section"><div class="lp-label">WRITING PROMPT</div><div class="lp-body">${escHtml(c.writingPrompt || '...')}</div></div>
-
-      <div style="margin-top:14px;">
-        <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;font-weight:600;color:var(--muted);margin-bottom:8px;">ADJUST DIFFICULTY</div>
-        <div class="diff-controls">
-          <button class="diff-btn active" onclick="setDiffMode('${escHtml(l.id)}', 'easier', this)">⬇ Easier</button>
-          <button class="diff-btn active" style="background:var(--ink);color:var(--paper);border-color:var(--ink);" onclick="setDiffMode('${escHtml(l.id)}', 'normal', this)">✓ As Generated</button>
-          <button class="diff-btn" onclick="setDiffMode('${escHtml(l.id)}', 'harder', this)">⬆ Harder</button>
-          <button class="diff-btn" onclick="regenerateLesson('${escHtml(l.id)}')">🔄 Regenerate</button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function toggleLessonPreview(id) {
-  const el = document.getElementById(`preview-${id}`);
-  el.classList.toggle('show');
-}
-
-async function approveLesson(id) {
-  const item = document.getElementById(`ai-${id}`);
-  const lesson = ex.pendingLessons.find(l => l.id === id);
-  if (lesson) lesson.status = 'approved';
-  renderApprovalQueue();
-  updateDashboardStats();
-  await sendApprovalToSheet(id, 'approved');
-}
-
-async function rejectLesson(id) {
-  const lesson = ex.pendingLessons.find(l => l.id === id);
-  if (lesson) lesson.status = 'rejected';
-  renderApprovalQueue();
-  updateDashboardStats();
-  await sendApprovalToSheet(id, 'rejected');
-}
-
-async function sendApprovalToSheet(id, status) {
-  if (!WEBHOOK_URL || !WEBHOOK_URL.startsWith('https://')) return;
-  try {
-    await FP.api.postForm(WEBHOOK_URL, { action: 'update_approval', lesson_id: id, status: status, teacher_code: ex.teacherCode });
-  } catch(e) {}
-}
-
-function setDiffMode(id, mode, btn) {
-  btn.closest('.diff-controls').querySelectorAll('.diff-btn').forEach(b => {
-    b.classList.remove('active'); b.style.background='white'; b.style.color='var(--muted)'; b.style.borderColor='var(--rule)';
-  });
-  btn.style.background='var(--ink)'; btn.style.color='var(--paper)'; btn.style.borderColor='var(--ink)';
-  const lesson = ex.pendingLessons.find(l => l.id === id);
-  if (lesson) lesson.diffMode = mode;
-}
-
-async function regenerateLesson(id) {
-  alert('Lesson regeneration requires the AI API to be connected to your Google Sheet webhook. In a live deployment, this would request a new lesson from the AI provider.');
-}
-
-function createManualLesson() {
-  alert('In a live deployment, this would let you create a custom lesson plan for your student.');
 }
 
 // ══════════════════════════════════════════════════════
@@ -1114,7 +985,7 @@ async function populateDayPicker(studentName, currentDay) {
     data.submissions.forEach(function(s) {
       var opt = document.createElement('option');
       opt.value = s.day_number;
-      opt.textContent = 'Day ' + s.day_number + ' — ' + (s.topic || 'Untitled') + (s.has_marks ? ' ✓ graded' : '');
+      opt.textContent = 'Day ' + s.day_number + ' — ' + (s.topic || 'Untitled') + (s.has_marks ? ' (graded)' : '');
       if (String(s.day_number) === String(currentDay)) opt.selected = true;
       picker.appendChild(opt);
     });
@@ -1224,7 +1095,7 @@ function displaySubmission(data) {
       document.getElementById('resp-listen-score').innerHTML = listenKeys.length + ' <span>answered</span>';
     }
   } else {
-    document.getElementById('resp-listening').innerHTML = '<span style="color:var(--muted);">No listening answers recorded.</span>';
+    document.getElementById('resp-listening').innerHTML = '<span class="empty-note">No listening answers recorded.</span>';
     document.getElementById('resp-listen-score').innerHTML = '— <span></span>';
   }
 
@@ -1245,12 +1116,11 @@ function displaySubmission(data) {
       document.getElementById('resp-practice-score').innerHTML = practiceKeys.length + ' <span>answered</span>';
     }
   } else {
-    document.getElementById('resp-practice').innerHTML = '<span style="color:var(--muted);">No comprehension answers recorded.</span>';
+    document.getElementById('resp-practice').innerHTML = '<span class="empty-note">No comprehension answers recorded.</span>';
     document.getElementById('resp-practice-score').innerHTML = '— <span></span>';
   }
 
-  const confMap = ['Hard 😕', 'OK 😐', 'Good 🙂', 'Great! 😄'];
-  document.getElementById('sum-confidence').textContent = data.confidence != null ? confMap[data.confidence] : '—';
+  document.getElementById('sum-confidence').innerHTML = confidenceHtml(data.confidence);
 
   // Restore existing marks if this submission was previously graded (from sheet)
   if (data.has_marks) {
@@ -1261,26 +1131,31 @@ function displaySubmission(data) {
   }
 }
 
+/**
+ * The student's self-rating as a face icon and a word. The sheet holds a plain word
+ * (Hard / OK / Good / Great), an index 0-3, or, in older rows, an emoji; all three work.
+ */
+function confidenceHtml(v) {
+  if (v == null || v === '') return '—';
+  var t = String(v);
+  var table = [
+    [/😕|hard/i,     'sentiment_frustrated',     'Hard'],
+    [/😐|\bok\b/i,  'sentiment_neutral',        'OK'],
+    [/🙂|good/i,     'sentiment_satisfied',      'Good'],
+    [/😄|😀|great/i, 'sentiment_very_satisfied', 'Great'],
+  ];
+  var idx = /^[0-3]$/.test(t) ? Number(t) : -1;
+  for (var k = 0; k < table.length; k++) {
+    if (k === idx || table[k][0].test(t)) return FP.icon(table[k][1]) + '<span>' + table[k][2] + '</span>';
+  }
+  return escHtml(t);
+}
+
 function buildResponseChip(label, answer, isCorrect, maxMarks) {
   var marks = maxMarks || 2;
-  if (isCorrect === undefined || isCorrect === null) {
-    // Unknown correctness — neutral chip
-    return '<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--cream);border:1px solid var(--rule);font-size:12px;border-radius:3px;">' +
-      '<span style="font-weight:600;">' + escHtml(label) + '</span> ' +
-      '<span style="color:var(--ink);">' + escHtml(answer) + '</span>' +
-      '</div>';
-  }
-  var bg     = isCorrect ? 'var(--green-bg)' : '#fdecea';
-  var border = isCorrect ? 'var(--green)' : 'var(--rust)';
-  var color  = isCorrect ? 'var(--green)' : 'var(--rust)';
-  var icon   = isCorrect ? '✓' : '✗';
-  var score  = isCorrect ? marks + '/' + marks : '0/' + marks;
-  return '<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:' + bg + ';border:1px solid ' + border + ';font-size:12px;border-radius:3px;">' +
-    '<span style="color:' + color + ';font-weight:600;">' + icon + '</span> ' +
-    '<span style="font-weight:600;">' + escHtml(label) + '</span> ' +
-    '<span style="color:var(--ink);">' + escHtml(answer) + '</span> ' +
-    '<span style="color:' + color + ';font-size:11px;">' + score + '</span>' +
-    '</div>';
+  if (isCorrect === undefined || isCorrect === null) return chipHtml('', '', escHtml(label), escHtml(answer), '');
+  return chipHtml(isCorrect ? 'ok' : 'bad', isCorrect ? 'check_small' : 'close_small',
+    escHtml(label), escHtml(answer), (isCorrect ? marks : 0) + '/' + marks);
 }
 
 /**
@@ -1339,36 +1214,36 @@ function renderSpeakingAudio(audioJsonStr) {
   drillKeys.forEach((key, i) => {
     const score = Number(audio[key + '_score']);
     const scoreHtml = isFinite(score) && audio[key + '_score'] != null
-      ? `<span style="margin-left:12px;font-size:12px;color:var(--forest);font-weight:600;">Accuracy: ${Math.round(score * 100)}%</span>`
+      ? `<span class="accuracy">Accuracy: ${Math.round(score * 100)}%</span>`
       : '';
     const transcriptKey = 'drill_' + key;
     const transcript = drillTranscripts[transcriptKey] || (ex.markingData ? ex.markingData[transcriptKey] : '');
     const transcriptHtml = transcript
-      ? `<blockquote style="margin:6px 0;padding:8px 12px;border-left:3px solid var(--forest);background:rgba(82,107,74,0.08);font-size:13px;font-style:italic;color:var(--ink);">"${escHtml(transcript)}"</blockquote>`
+      ? `<blockquote class="drill-quote">"${escHtml(transcript)}"</blockquote>`
       : '';
     drillContainer.insertAdjacentHTML('beforeend', `
-      <div style="margin-bottom:12px;">
-        <div style="font-size:12px;font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;">
+      <div class="audio-item">
+        <div class="audio-item__head">
           Drill ${i + 1}${scoreHtml}
         </div>
         ${transcriptHtml}
-        <div id="audio-drill-${i}" style="font-size:12px;color:var(--muted);">Loading audio…</div>
+        <div id="audio-drill-${i}" class="audio-load">Loading audio…</div>
       </div>`);
     fetchAudioBlobUrl(audio[key]).then(blobUrl => {
       const el = document.getElementById('audio-drill-' + i);
       if (el) el.innerHTML = blobUrl
-        ? `<audio controls src="${blobUrl}" style="width:100%;max-width:400px;"></audio>`
-        : '<span style="color:var(--red);">Could not load audio.</span>';
+        ? `<audio controls src="${blobUrl}"></audio>`
+        : '<span class="err-note">Could not load audio.</span>';
     });
   });
 
   if (convId) {
-    convContainer.innerHTML = '<div id="audio-conv" style="font-size:12px;color:var(--muted);">Loading audio…</div>';
+    convContainer.innerHTML = '<div id="audio-conv" class="audio-load">Loading audio…</div>';
     fetchAudioBlobUrl(convId).then(blobUrl => {
       const el = document.getElementById('audio-conv');
       if (el) el.innerHTML = blobUrl
-        ? `<audio controls src="${blobUrl}" style="width:100%;max-width:400px;"></audio>`
-        : '<span style="color:var(--red);">Could not load audio.</span>';
+        ? `<audio controls src="${blobUrl}"></audio>`
+        : '<span class="err-note">Could not load audio.</span>';
     });
   }
 }
@@ -1389,15 +1264,15 @@ function renderPlacementAudio(audioJsonStr) {
     if (typeof fileId !== 'string' || !/^[A-Za-z0-9_-]{10,100}$/.test(fileId)) return;
     var rv = document.getElementById('pt-rv-' + q);
     rv.insertAdjacentHTML('afterend',
-      '<div id="pt-audio-' + q + '" style="margin-bottom:8px;font-size:12px;color:var(--muted);">Loading audio…</div>');
+      '<div id="pt-audio-' + q + '" class="audio-load u-mb-3">Loading audio…</div>');
     fetchAudioBlobUrl(fileId).then(function (blobUrl) {
       var el = document.getElementById('pt-audio-' + q);
       if (!el) return;
-      if (blobUrl) el.innerHTML = '<audio controls src="' + blobUrl + '" style="width:100%;max-width:400px;"></audio>';
-      else el.innerHTML = '<span style="color:var(--rust);">Could not load audio.</span>';
+      if (blobUrl) el.innerHTML = '<audio controls src="' + blobUrl + '"></audio>';
+      else el.innerHTML = '<span class="err-note">Could not load audio.</span>';
     }).catch(function () {
       var el = document.getElementById('pt-audio-' + q);
-      if (el) el.innerHTML = '<span style="color:var(--rust);">Could not load audio.</span>';
+      if (el) el.innerHTML = '<span class="err-note">Could not load audio.</span>';
     });
   });
 }
@@ -1542,7 +1417,7 @@ function updateSummaryTotal() {
 
   var grandTotal = w + s + lCorrect + pCorrect;
   var grandMax   = 45 + lTotal + pTotal;
-  document.getElementById('sum-total').innerHTML = grandTotal + ' <span style="font-size:14px;color:var(--gold);">/ ' + grandMax + '</span>';
+  document.getElementById('sum-total').innerHTML = grandTotal + ' <span class="of">/ ' + grandMax + '</span>';
 }
 
 // ══════════════════════════════════════════════════════
@@ -1580,7 +1455,7 @@ function saveWeeklySummary() {
 async function generateAISummary() {
   const num = ex.currentWeek;
   const btn = event.target;
-  btn.textContent = '✨ Generating…';
+  btn.textContent = 'Generating…';
   btn.disabled = true;
 
   const attendance = Object.entries(ex.attendance).filter(([k]) => {
@@ -1614,7 +1489,7 @@ Write a professional but warm 3-4 paragraph summary covering: what was achieved 
     console.warn('[FluentPath] AI summary generation failed:', e.message);
     showStatus('weekly-save-status', 'AI summary unavailable — the Apps Script proxy needs an ai_summary action. Write the summary manually for now.', true);
   }
-  btn.textContent = '✨ AI Draft Summary'; btn.disabled = false;
+  btn.textContent = 'AI draft summary'; btn.disabled = false;
 }
 
 // ══════════════════════════════════════════════════════
@@ -1631,7 +1506,7 @@ function buildDifficultyGrid() {
         <input type="range" class="diff-range" min="${a.min}" max="${a.max}" step="1" value="${val}"
           oninput="updateDiff('${a.key}', this.value)" id="dr-${a.key}">
         <div class="diff-labels"><span>Easy</span><span>Hard</span></div>
-        <div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:6px;">${a.desc}</div>
+        <div class="dac-desc">${a.desc}</div>
       </div>`;
   }).join('');
 }
@@ -1689,13 +1564,13 @@ function syncDifficultyToSheet(statusId, successMsg) {
 function buildFocusTags() {
   const container = document.getElementById('focus-tags');
   container.innerHTML = FOCUS_OPTIONS.map(opt => `
-    <button class="diff-btn ${ex.focusTags.has(opt) ? 'active' : ''}" onclick="toggleFocusTag('${escHtml(opt)}', this)">${escHtml(opt)}</button>
+    <button type="button" class="diff-btn ${ex.focusTags.has(opt) ? 'active' : ''}" aria-pressed="${ex.focusTags.has(opt) ? 'true' : 'false'}" onclick="toggleFocusTag('${escHtml(opt)}', this)">${escHtml(opt)}</button>
   `).join('');
 }
 
 function toggleFocusTag(tag, btn) {
-  if (ex.focusTags.has(tag)) { ex.focusTags.delete(tag); btn.classList.remove('active'); btn.style.background='white'; btn.style.color='var(--muted)'; btn.style.borderColor='var(--rule)'; }
-  else { ex.focusTags.add(tag); btn.style.background='var(--ink)'; btn.style.color='var(--paper)'; btn.style.borderColor='var(--ink)'; }
+  if (ex.focusTags.has(tag)) { ex.focusTags.delete(tag); btn.classList.remove('active'); btn.setAttribute('aria-pressed', 'false'); }
+  else { ex.focusTags.add(tag); btn.classList.add('active'); btn.setAttribute('aria-pressed', 'true'); }
 }
 
 function saveFocusAreas() {
@@ -1710,23 +1585,23 @@ function saveFocusAreas() {
 function updateLessonRecord() {
   const container = document.getElementById('lesson-record-table');
   if (ex.lessonRecords.length === 0) {
-    container.innerHTML = '<div style="font-size:14px;color:var(--muted);font-style:italic;">No marked lessons yet.</div>';
+    container.innerHTML = '<div class="empty-note">No marked lessons yet.</div>';
     return;
   }
 
   container.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <div class="table-scroll"><table class="class-table record-table">
       <thead>
-        <tr style="border-bottom:2px solid var(--rule);">
-          <th style="text-align:left;padding:8px;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);">Day</th>
-          <th style="text-align:left;padding:8px;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);">Topic</th>
-          <th style="text-align:center;padding:8px;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);">Warmup</th>
-          <th style="text-align:center;padding:8px;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);">Vocab</th>
-          <th style="text-align:center;padding:8px;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);">Listening</th>
-          <th style="text-align:center;padding:8px;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);">Practice</th>
-          <th style="text-align:right;padding:8px;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);">Writing</th>
-          <th style="text-align:right;padding:8px;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);">Speaking</th>
-          <th style="text-align:center;padding:8px;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);">Attend</th>
+        <tr>
+          <th class="">Day</th>
+          <th class="">Topic</th>
+          <th class="c">Warmup</th>
+          <th class="c">Vocab</th>
+          <th class="c">Listening</th>
+          <th class="c">Practice</th>
+          <th class="r">Writing</th>
+          <th class="r">Speaking</th>
+          <th class="c">Attendance</th>
         </tr>
       </thead>
       <tbody>
@@ -1739,29 +1614,29 @@ function updateLessonRecord() {
           if (aj.listening_correct != null && aj.listening_total != null) {
             listenCell = aj.listening_correct + '/' + aj.listening_total;
           } else if (Object.keys(aj).some(function(k) { return k.startsWith('listening_'); })) {
-            listenCell = '✓';
+            listenCell = DONE_ICON;
           }
           var practiceCell = '—';
           if (aj.practice_correct != null && aj.practice_total != null) {
             practiceCell = aj.practice_correct + '/' + aj.practice_total;
           } else if (Object.keys(aj).some(function(k) { return k.startsWith('practice_'); })) {
-            practiceCell = '✓';
+            practiceCell = DONE_ICON;
           }
           return `
-          <tr style="border-bottom:1px solid var(--cream);">
-            <td style="padding:8px;font-weight:600;">Day ${escHtml(String(r.day))}</td>
-            <td style="padding:8px;font-style:italic;color:var(--muted);">${escHtml(r.topic || '—')}</td>
-            <td style="padding:8px;text-align:center;">${hasWarmup ? '✓' : '—'}</td>
-            <td style="padding:8px;text-align:center;">${hasVocab ? '✓' : '—'}</td>
-            <td style="padding:8px;text-align:center;">${listenCell}</td>
-            <td style="padding:8px;text-align:center;">${practiceCell}</td>
-            <td style="padding:8px;text-align:right;">${r.writingScore != null ? r.writingScore + '/25' : '—'}</td>
-            <td style="padding:8px;text-align:right;">${r.speakingScore != null ? r.speakingScore + '/20' : '—'}</td>
-            <td style="padding:8px;text-align:center;"><span class="pill ${r.attended ? 'approved' : 'absent'}">${r.attended ? 'Present' : 'Absent'}</span></td>
+          <tr>
+            <td class="u-strong">Day ${escHtml(String(r.day))}</td>
+            <td class="u-muted">${escHtml(r.topic || '—')}</td>
+            <td class="c">${hasWarmup ? DONE_ICON : '—'}</td>
+            <td class="c">${hasVocab ? DONE_ICON : '—'}</td>
+            <td class="c">${listenCell}</td>
+            <td class="c">${practiceCell}</td>
+            <td class="r">${r.writingScore != null ? r.writingScore + '/25' : '—'}</td>
+            <td class="r">${r.speakingScore != null ? r.speakingScore + '/20' : '—'}</td>
+            <td class="c"><span class="pill ${r.attended ? 'approved' : 'absent'}">${r.attended ? 'Present' : 'Absent'}</span></td>
           </tr>`;
         }).join('')}
       </tbody>
-    </table>`;
+    </table></div>`;
 }
 
 function updateSkillsSnapshot() {
@@ -1936,18 +1811,18 @@ function renderDashboardCallRequests() {
   }
   var items = pending.map(function(r) {
     var when = r.requested_at ? formatLessonDate(r.requested_at) : '';
-    return '<li style="padding:6px 0;font-size:13px;">' +
+    return '<li>' +
       '<strong>' + escHtml(r.student_name) + '</strong>' +
       ' requested a call' + (r.page ? ' from ' + escHtml(r.page) : '') +
       (when ? ' · ' + escHtml(when) : '') +
-      ' · <a href="#" onclick="event.preventDefault();switchToStudent(\'' + escHtml(r.student_name) + '\')" style="color:var(--blue);text-decoration:underline;">open dashboard</a>' +
+      ' · <a href="#" onclick="event.preventDefault();switchToStudent(\'' + escHtml(r.student_name) + '\')" class="link">open dashboard</a>' +
       '</li>';
   }).join('');
   container.style.display = 'block';
   container.innerHTML =
-    '<div class="card card-top blue" style="background:#eaf0fb;">' +
-      '<div class="card-label" style="color:var(--blue);">📹 PENDING VIDEO CALL REQUESTS</div>' +
-      '<ul style="margin:8px 0 0;padding-left:20px;">' + items + '</ul>' +
+    '<div class="card call-card" role="status">' +
+      '<div class="card-label">' + FP.icon('videocam', { size: 'sm' }) + ' Pending video call requests</div>' +
+      '<ul>' + items + '</ul>' +
     '</div>';
 }
 
@@ -1969,11 +1844,11 @@ function renderProfileCallRequest() {
   var when = request.requested_at ? formatLessonDate(request.requested_at) : '';
   if (request.status === 'pending') {
     el.innerHTML =
-      '<div style="color:var(--ink);font-style:normal;">' +
-        '<p style="margin-bottom:12px;"><strong>' + escHtml(ex.studentName) + '</strong> requested a video call' +
+      '<div>' +
+        '<p class="u-mb-3"><strong>' + escHtml(ex.studentName) + '</strong> requested a video call' +
           (when ? ' on ' + escHtml(when) : '') + '.</p>' +
-        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
-          '<input type="text" id="call-link-input-' + escHtml(request.id) + '" placeholder="Paste Zoom/WhatsApp/Meet link" style="flex:1;min-width:240px;padding:8px 10px;border:1px solid var(--rule);font-size:13px;">' +
+        '<div class="call-link-row">' +
+          '<input type="text" id="call-link-input-' + escHtml(request.id) + '" aria-label="Call link" placeholder="Paste Zoom/WhatsApp/Meet link">' +
           '<button class="btn-primary" onclick="sendCallLink(\'' + escHtml(request.id) + '\')">Send Link</button>' +
           '<button class="btn-secondary" onclick="markCallDone(\'' + escHtml(request.id) + '\')">Mark as Done</button>' +
         '</div>' +
@@ -1981,9 +1856,9 @@ function renderProfileCallRequest() {
       '</div>';
   } else if (request.status === 'sent') {
     el.innerHTML =
-      '<div style="color:var(--ink);font-style:normal;">' +
-        '<p style="margin-bottom:8px;">✓ Call link sent to <strong>' + escHtml(ex.studentName) + '</strong>.</p>' +
-        '<p style="font-size:12px;margin-bottom:12px;word-break:break-all;"><a href="' + escHtml(request.call_link) + '" target="_blank">' + escHtml(request.call_link) + '</a></p>' +
+      '<div>' +
+        '<p class="u-mb-3 ok-text">' + FP.icon('check_small', { size: 'sm' }) + ' Call link sent to <strong>' + escHtml(ex.studentName) + '</strong>.</p>' +
+        '<p class="u-sm u-mb-3 wrap-any"><a class="link" href="' + escHtml(request.call_link) + '" target="_blank" rel="noopener">' + escHtml(request.call_link) + '</a></p>' +
         '<button class="btn-secondary" onclick="markCallDone(\'' + escHtml(request.id) + '\')">Mark as Done</button>' +
         '<div class="send-status" id="call-status-' + escHtml(request.id) + '"></div>' +
       '</div>';
@@ -2008,7 +1883,7 @@ async function markCallDone(requestId) {
   try {
     await teacherWrite({ action: 'update_call_status', id: requestId, status: 'done' });
     setTimeout(loadCallRequests, 500);
-  } catch (e) { alert('Could not mark the call done: ' + e.message); }
+  } catch (e) { FP.ui.toast('Could not mark the call done: ' + e.message, { variant: 'error' }); }
 }
 
 async function promoteStudent() {
@@ -2053,6 +1928,7 @@ function saveProfile() {
   ex.allowRetakeTest     = document.getElementById('prof-allow-retake-test').checked;
   var grantAccessEl      = document.getElementById('prof-grant-access');
   ex.grantAccess         = grantAccessEl ? grantAccessEl.checked : ex.grantAccess;
+  ex.teacherName         = document.getElementById('prof-teacher').value.trim();
   ex.teacherEmail        = document.getElementById('prof-teacher-email').value;
   ex.notifyOnTest        = document.getElementById('prof-notify-test').checked;
   ex.notifyOnSubmission  = document.getElementById('prof-notify-submission').checked;
@@ -2194,6 +2070,10 @@ function autoSave(key, value) {
   try { localStorage.setItem('fp_' + key, value); } catch(e) {}
 }
 
+const SAVED_KEYS = ['teacherName', 'studentName', 'studentLevel', 'studentMonth', 'studentEmail', 'studentNotes',
+  'allowSpanish', 'allowSkipTest', 'allowRetakeTest', 'attendance', 'weeklySummaries', 'difficultyProfile',
+  'lessonRecords', 'aiInstructions', 'ptGraded', 'teacherEmail', 'notifyOnTest', 'notifyOnSubmission', 'notifyOnCallRequest'];
+
 function saveToLocalStorage() {
   try {
     const toSave = {
@@ -2310,7 +2190,8 @@ function loadFromLocalStorage() {
     const saved = localStorage.getItem('fluentpath_teacher');
     if (!saved) return false;
     const data = JSON.parse(saved);
-    Object.assign(ex, data);
+    // TCH-5: copy only the keys we save, so a tampered or stale entry can't overwrite other state
+    SAVED_KEYS.forEach(function(k) { if (k in data) ex[k] = data[k]; });
     ex.focusTags = new Set(data.focusTags || []);
     return true;
   } catch(e) { return false; }
@@ -2335,13 +2216,51 @@ async function teacherWrite(payload, options) {
   return res;
 }
 
+/**
+ * An in-page confirmation (replaces window.confirm). Resolves true or false.
+ * The safe choice (cancel) is the primary button and has focus; Escape and the backdrop cancel.
+ */
+function confirmDialog(opts) {
+  return new Promise(function (resolve) {
+    var prev = document.activeElement;
+    var scrim = document.createElement('div');
+    scrim.className = 'fp-scrim is-open';
+    scrim.innerHTML =
+      '<div class="fp-modal" role="alertdialog" aria-modal="true" aria-labelledby="cdTitle" aria-describedby="cdMsg">' +
+        '<h2 class="fp-modal__title" id="cdTitle">' + escHtml(opts.title) + '</h2>' +
+        '<p id="cdMsg" class="u-mb-6">' + escHtml(opts.message || '') + '</p>' +
+        '<div class="confirm-actions">' +
+          '<button type="button" class="btn-primary" id="cdCancel">' + escHtml(opts.cancelLabel || 'Cancel') + '</button>' +
+          '<button type="button" class="' + (opts.danger ? 'btn-reject' : 'btn-secondary') + '" id="cdOk">' + escHtml(opts.confirmLabel || 'OK') + '</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(scrim);
+    var cancel = scrim.querySelector('#cdCancel'), ok = scrim.querySelector('#cdOk');
+    function done(v) { document.removeEventListener('keydown', onKey); scrim.remove(); if (prev && prev.focus) prev.focus(); resolve(v); }
+    function onKey(e) {
+      if (e.key === 'Escape') { e.preventDefault(); done(false); }
+      else if (e.key === 'Tab') {
+        if (e.shiftKey && document.activeElement === cancel) { e.preventDefault(); ok.focus(); }
+        else if (!e.shiftKey && document.activeElement === ok) { e.preventDefault(); cancel.focus(); }
+      }
+    }
+    document.addEventListener('keydown', onKey);
+    scrim.addEventListener('click', function (e) { if (e.target === scrim) done(false); });
+    cancel.onclick = function () { done(false); };
+    ok.onclick = function () { done(true); };
+    cancel.focus();
+  });
+}
+
+/** A status line under a control: an icon plus words (never colour alone). Success clears after 4 s. */
 function showStatus(id, msg, isError) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.textContent = msg;
-  el.className = 'send-status' + (isError ? ' err' : ' ok');
-  el.style.display = 'block';
-  if (!isError) setTimeout(() => el.style.display = 'none', 4000);
+  const text = String(msg).replace(/^[✓⚠]\s*/, '');
+  el.innerHTML = FP.icon(isError ? 'warning' : 'check', { size: 'sm' }) + '<span>' + escHtml(text) + '</span>';
+  el.className = 'send-status show ' + (isError ? 'err' : 'ok');
+  el.setAttribute('role', isError ? 'alert' : 'status');
+  if (!isError) setTimeout(() => el.classList.remove('show'), 4000);
 }
 
 
@@ -2357,9 +2276,6 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   const hasSaved = loadFromLocalStorage();
-
-  // Always use hardcoded teacher name
-  ex.teacherName = 'Sebastian Galindo';
 
   // Check URL param for student name (from teacher.html student picker)
   var urlParams = new URLSearchParams(window.location.search);
@@ -2389,11 +2305,11 @@ var libData = null; // cached get_library response
 function loadLibraryPanel() {
   if (!WEBHOOK_URL || !WEBHOOK_URL.startsWith('https://')) {
     document.getElementById('lib-grid-container').innerHTML =
-      '<div style="color:var(--muted);font-style:italic;">Webhook not configured — library unavailable offline.</div>';
+      '<div class="empty-note">Webhook not configured — library unavailable offline.</div>';
     return;
   }
   document.getElementById('lib-grid-container').innerHTML =
-    '<div style="font-size:14px;color:var(--muted);font-style:italic;">Loading…</div>';
+    '<div class="empty-note">Loading…</div>';
 
   FP.api.get(WEBHOOK_URL + '?action=get_library', { timeout: 30000 })
     .then(function(data) {
@@ -2404,7 +2320,7 @@ function loadLibraryPanel() {
     })
     .catch(function(err) {
       document.getElementById('lib-grid-container').innerHTML =
-        '<div style="color:var(--rust);font-style:italic;">Failed to load library: ' + escHtml(err.message) + '</div>';
+        '<div class="err-note">Failed to load library: ' + escHtml(err.message) + '</div>';
     });
 }
 
@@ -2448,20 +2364,20 @@ function openLibraryCell(level, day) {
   var g       = groupMap[level + '_' + day];
   var content = document.getElementById('lib-modal-content');
 
-  var html = '<div class="panel-eyebrow" style="margin-bottom:4px;">LESSON LIBRARY</div>' +
-    '<div style="font-family:var(--font-family-primary);font-size:24px;font-weight:700;margin-bottom:4px;">' +
+  var html = '<div class="panel-eyebrow">Lesson library</div>' +
+    '<div class="u-h2 u-mb-1">' +
     escHtml(level) + ' &middot; Day ' + day + '</div>';
 
   if (!g || g.entries.length === 0) {
-    html += '<div style="font-size:14px;color:var(--muted);font-style:italic;margin-top:16px;">No entries yet for this day.</div>';
+    html += '<div class="empty-note u-mt-4">No entries yet for this day.</div>';
   } else {
-    html += '<div style="font-size:13px;color:var(--muted);margin-bottom:18px;">' +
+    html += '<div class="u-sm u-muted u-mb-4">' +
       g.entries.length + ' entr' + (g.entries.length === 1 ? 'y' : 'ies') + '</div>';
 
     g.entries.forEach(function(entry) {
       var shortId = String(entry.id).replace('lib_', '').slice(0, 20);
       var badge   = entry.times_served > 0
-        ? '<span class="lib-recycled-badge">&#9851; served ' + entry.times_served + '&times;</span>'
+        ? '<span class="lib-recycled-badge">served ' + entry.times_served + '&times;</span>'
         : '';
       var diffParsed = null;
       try { if (entry.original_difficulty_json) diffParsed = JSON.parse(entry.original_difficulty_json); } catch (e) {}
@@ -2477,12 +2393,12 @@ function openLibraryCell(level, day) {
           '<div class="lib-entry-id">' + escHtml(shortId) + badge + '</div>' +
           '<div class="lib-entry-detail">Source: ' + escHtml(entry.source_student || '—') +
             ' &nbsp;·&nbsp; Created: ' + escHtml(String(entry.created_at || '').slice(0, 10)) + '</div>' +
-          '<div class="lib-entry-detail" style="font-size:10px;margin-top:2px;">' + diffStr + '</div>' +
-          '<div id="preview-' + safeId + '" style="display:none;"></div>' +
+          '<div class="lib-entry-detail">' + diffStr + '</div>' +
+          '<div id="preview-' + safeId + '" class="fp-hidden"></div>' +
         '</div>' +
-        '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">' +
-          '<button class="btn-preview" onclick="toggleLibraryPreview(\'' + safeId + '\')" style="font-size:11px;padding:6px 12px;">Preview</button>' +
-          '<button class="btn-reject" onclick="deleteLibraryEntry(\'' + safeId + '\',\'' + escHtml(level) + '\',' + day + ')" style="font-size:11px;padding:6px 12px;">Delete</button>' +
+        '<div class="lib-col">' +
+          '<button class="btn-preview" onclick="toggleLibraryPreview(\'' + safeId + '\')">Preview</button>' +
+          '<button class="btn-reject" onclick="deleteLibraryEntry(\'' + safeId + '\',\'' + escHtml(level) + '\',' + day + ')">Delete</button>' +
         '</div>' +
       '</div>';
     });
@@ -2495,22 +2411,22 @@ function openLibraryCell(level, day) {
 function toggleLibraryPreview(entryId) {
   var box = document.getElementById('preview-' + entryId);
   if (!box) return;
-  if (box.style.display !== 'none') { box.style.display = 'none'; return; }
+  if (!box.classList.contains('fp-hidden')) { box.classList.add('fp-hidden'); return; }
 
-  box.innerHTML = '<div style="font-size:12px;color:var(--muted);font-style:italic;margin-top:8px;">Loading…</div>';
-  box.style.display = 'block';
+  box.innerHTML = '<div class="audio-load u-mt-3">Loading…</div>';
+  box.classList.remove('fp-hidden');
 
   var url = WEBHOOK_URL + '?action=get_library_entry&id=' + encodeURIComponent(entryId);
   FP.api.get(url, { timeout: 20000 })
     .then(function(data) {
       if (!data || !data.found || !data.entry) {
-        box.innerHTML = '<div style="color:var(--rust);font-size:12px;margin-top:8px;">Entry not found.</div>';
+        box.innerHTML = '<div class="err-note u-mt-3">Entry not found.</div>';
         return;
       }
       var lesson = null;
       try { lesson = JSON.parse(data.entry.lesson_json || ''); } catch (e) {}
       if (!lesson) {
-        box.innerHTML = '<div style="color:var(--rust);font-size:12px;margin-top:8px;">Could not parse lesson JSON.</div>';
+        box.innerHTML = '<div class="err-note u-mt-3">Could not parse lesson JSON.</div>';
         return;
       }
       var preview = {
@@ -2524,12 +2440,15 @@ function toggleLibraryPreview(entryId) {
       box.innerHTML = '<div class="lib-preview-box">' + escHtml(JSON.stringify(preview, null, 2)) + '</div>';
     })
     .catch(function(err) {
-      box.innerHTML = '<div style="color:var(--rust);font-size:12px;margin-top:8px;">Failed to load: ' + escHtml(err.message) + '</div>';
+      box.innerHTML = '<div class="err-note u-mt-3">Failed to load: ' + escHtml(err.message) + '</div>';
     });
 }
 
-function deleteLibraryEntry(entryId, level, day) {
-  if (!confirm('Soft-delete this lesson from the library?\n\nIt will no longer be served to students. Recoverable by editing the sheet directly (set is_active back to "true").')) return;
+async function deleteLibraryEntry(entryId, level, day) {
+  if (!await confirmDialog({
+    title: 'Remove this lesson from the library?',
+    message: 'It will no longer be served to students. You can restore it by editing the sheet directly (set is_active back to "true").',
+    confirmLabel: 'Remove lesson', danger: true })) return;
 
   teacherWrite({ action: 'delete_library_entry', id: entryId })
     .then(function() {
@@ -2551,7 +2470,7 @@ function deleteLibraryEntry(entryId, level, day) {
         (libData && libData.totalRecycled) || 0
       );
     })
-    .catch(function(err) { alert('Delete failed: ' + escHtml(err.message)); });
+    .catch(function(err) { FP.ui.toast('Delete failed: ' + err.message, { variant: 'error' }); });
 }
 
 function closeLibraryModal() {
