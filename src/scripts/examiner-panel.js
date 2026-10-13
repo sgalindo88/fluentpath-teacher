@@ -889,20 +889,33 @@ function renderDashboardFocusRequests() {
 function renderStudentFocusRequest() {
   var el = document.getElementById('focus-request-content');
   if (!el) return;
-  var r = focusStudentCache.filter(function (x) { return x.status !== 'replaced'; })[0];
-  if (!r) { el.innerHTML = 'No request from this student.'; return; }
-  var when = r.requested_at ? formatLessonDate(r.requested_at) : '';
-  var chips = r.topics_en.map(function (t) { return '<span class="chip">' + escHtml(t) + '</span>'; }).join(' ');
-  var status = { pending: 'Waiting for your decision', approved: 'Approved. Used for this student\'s next generated lessons.', declined: 'Declined. Not used.' }[r.status] || r.status;
+  var list = focusStudentCache;
+  if (!list.length) { el.innerHTML = 'No request from this student.'; return; }
+  var STATUS = {
+    pending: [FP.icon('lightbulb', { size: 'sm' }), 'Waiting for your decision'],
+    approved: [FP.icon('check_small', { size: 'sm' }), 'Approved (used for the next generated lessons)'],
+    declined: [FP.icon('close_small', { size: 'sm' }), 'Declined'],
+    replaced: [FP.icon('close_small', { size: 'sm' }), 'Replaced by a newer request']
+  };
+  var rows = list.map(function (r) {
+    var when = r.requested_at ? formatLessonDate(r.requested_at) : '';
+    var st = STATUS[r.status] || ['', r.status];
+    var actions = r.status === 'pending'
+      ? '<div class="row-wrap">' +
+          '<button class="btn-primary" onclick="reviewFocus(\'' + escHtml(r.id) + '\', \'approve\', this)">Approve</button>' +
+          '<button class="btn-secondary" onclick="reviewFocus(\'' + escHtml(r.id) + '\', \'decline\', this)">Decline</button>' +
+        '</div>'
+      : '';
+    return '<tr' + (r.status === 'replaced' ? ' class="u-muted"' : '') + '>' +
+      '<td>' + escHtml(when) + '</td>' +
+      '<td>' + (escHtml((r.topics_en || []).join(', ')) || '<em>no topics chosen</em>') +
+        (r.note ? '<div class="u-sm u-muted">&ldquo;' + escHtml(r.note) + '&rdquo;</div>' : '') + '</td>' +
+      '<td>' + st[0] + ' ' + escHtml(st[1]) + actions + '</td>' +
+    '</tr>';
+  }).join('');
   el.innerHTML =
-    '<p class="u-mb-3"><strong>' + escHtml(ex.studentName) + '</strong> asked to practise' + (when ? ' (' + escHtml(when) + ')' : '') + ':</p>' +
-    '<div class="row-wrap u-mb-3">' + (chips || '<em>no topics chosen</em>') + '</div>' +
-    (r.note ? '<p class="u-mb-3">In their words: &ldquo;' + escHtml(r.note) + '&rdquo;</p>' : '') +
-    '<p class="u-mb-3 u-sm u-muted">' + escHtml(status) + '</p>' +
-    '<div class="row-wrap">' +
-      (r.status !== 'approved' ? '<button class="btn-primary" onclick="reviewFocus(\'' + escHtml(r.id) + '\', \'approve\', this)">Approve</button>' : '') +
-      (r.status !== 'declined' ? '<button class="btn-secondary" onclick="reviewFocus(\'' + escHtml(r.id) + '\', \'decline\', this)">Decline</button>' : '') +
-    '</div><div class="send-status" id="focus-review-status" role="status"></div>';
+    '<div class="table-scroll"><table class="class-table class-table--static"><thead><tr><th>Asked</th><th>Topics</th><th>Decision</th></tr></thead><tbody>' +
+    rows + '</tbody></table></div><div class="send-status" id="focus-review-status" role="status"></div>';
 }
 
 async function reviewFocus(id, decision, btn) {

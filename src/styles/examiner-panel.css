@@ -259,6 +259,7 @@ button { font-family: inherit; }
 .class-table th { position: sticky; top: 0; padding: var(--space-3); background: var(--fp-ice-100); color: var(--fp-navy-900); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); text-align: left; cursor: pointer; user-select: none; }
 @media (hover: hover) { .class-table th:hover { background: var(--surface-secondary); } }
 .class-table td { padding: var(--space-3); border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+.class-table--static th { position: static; cursor: default; }
 .class-table tr.clickable { cursor: pointer; }
 @media (hover: hover) { .class-table tr.clickable:hover { background: var(--surface-primary); } }
 .class-row-green td:first-child { border-left: 4px solid var(--fp-green-500); }

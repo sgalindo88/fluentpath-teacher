@@ -48,6 +48,18 @@
       <h2 class="section-label">Select a student</h2>
       <button type="button" class="fp-btn fp-btn--text" onclick="teacherLogout()">Log out</button>
     </div>
+    <section id="acctRequests" class="fp-card inbox-card fp-hidden" aria-labelledby="acctReqTitle">
+      <h2 class="section-label" id="acctReqTitle">Account requests</h2>
+      <ul class="inbox-list" id="acctReqList"></ul>
+    </section>
+    <section id="feedbackBox" class="fp-card inbox-card fp-hidden" aria-labelledby="feedbackTitle">
+      <h2 class="section-label" id="feedbackTitle">Student feedback</h2>
+      <ul class="inbox-list" id="feedbackList"></ul>
+      <details class="inbox-done fp-hidden" id="feedbackDone">
+        <summary id="feedbackDoneSummary">Done</summary>
+        <ul class="inbox-list" id="feedbackDoneList"></ul>
+      </details>
+    </section>
     <div id="studentList" class="student-list">
       <div class="loading-msg"><span class="fp-spinner" aria-hidden="true"></span> Loading students…</div>
     </div>

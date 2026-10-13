@@ -43,6 +43,8 @@
       localStorage.setItem(FP.KEYS.ROLE, res.role);
       show('portal');
       loadStudents();
+      loadAccountRequests();
+      loadFeedback();
     } catch (e) {
       setMsg(err, 'Could not reach the server. Please try again.');
     } finally {
@@ -85,6 +87,7 @@
         document.getElementById('caEmail').value = '';
         document.getElementById('caPassword').value = '';
         loadStudents();
+        loadAccountRequests();
       } else {
         setMsg(st, (res && (res.error || res.message)) || 'Could not create account.');
       }
@@ -96,6 +99,92 @@
       btn.textContent = btnLabel;
     }
   };
+
+  // ── Inbox: account requests from the brochure, and student feedback ──
+  function shortDate(iso) {
+    var d = new Date(iso);
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  async function loadAccountRequests() {
+    var box = document.getElementById('acctRequests');
+    var list = document.getElementById('acctReqList');
+    try {
+      var data = await FP.api.get(WEBHOOK_URL + '?action=get_account_requests');
+      var reqs = (data && data.requests) || [];
+      box.classList.toggle('fp-hidden', !reqs.length);
+      list.innerHTML = reqs.map(function(r) {
+        return '<li class="inbox-item" data-id="' + escHtml(r.id) + '">' +
+          '<div class="inbox-item__main"><strong>' + escHtml(r.name) + '</strong> ' +
+          '<span class="inbox-meta">' + escHtml(r.email) + ' · ' + escHtml(shortDate(r.requested_at)) +
+          ' · ' + (r.language === 'es' ? 'Spanish' : 'English') + '</span>' +
+          (r.note ? '<div class="inbox-note">&ldquo;' + escHtml(r.note) + '&rdquo;</div>' : '') + '</div>' +
+          '<div class="inbox-actions">' +
+          '<button type="button" class="fp-btn fp-btn--primary" data-act="create">Create account</button>' +
+          '<button type="button" class="fp-btn fp-btn--secondary" data-act="dismiss">Dismiss</button></div></li>';
+      }).join('');
+      list._reqs = reqs;
+    } catch (e) { box.classList.add('fp-hidden'); }
+  }
+
+  document.getElementById('acctReqList').addEventListener('click', async function(ev) {
+    var btn = ev.target.closest('button[data-act]');
+    if (!btn) return;
+    var li = btn.closest('li');
+    var req = (this._reqs || []).filter(function(r) { return String(r.id) === li.getAttribute('data-id'); })[0];
+    if (!req) return;
+    if (btn.getAttribute('data-act') === 'create') {
+      document.getElementById('caName').value = req.name;
+      document.getElementById('caEmail').value = req.email;
+      document.getElementById('caPassword').focus();
+      document.getElementById('caPassword').scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    btn.disabled = true;
+    try {
+      await FP.api.postRead(WEBHOOK_URL + '?action=update_account_request', { id: req.id, status: 'dismissed' });
+      loadAccountRequests();
+    } catch (e) { btn.disabled = false; }
+  });
+
+  function feedbackItem(f) {
+    var done = f.status === 'done';
+    return '<li class="inbox-item' + (done ? ' is-done' : '') + '" data-id="' + escHtml(f.id) + '">' +
+      '<div class="inbox-item__main"><span class="fp-badge ' + (f.type === 'bug' ? 'fp-badge--warning' : '') + '">' +
+      (f.type === 'bug' ? 'Problem' : 'Feature idea') + '</span> <strong>' + escHtml(f.student_name) + '</strong> ' +
+      '<span class="inbox-meta">' + escHtml(shortDate(f.submitted_at)) + (f.device ? ' · ' + escHtml(f.device.slice(0, 70)) : '') + '</span>' +
+      '<div class="inbox-note">' + escHtml(f.message) + '</div></div>' +
+      '<div class="inbox-actions"><button type="button" class="fp-btn fp-btn--secondary" data-act="' + (done ? 'reopen' : 'done') + '">' +
+      (done ? 'Reopen' : 'Mark done') + '</button></div></li>';
+  }
+
+  async function loadFeedback() {
+    var box = document.getElementById('feedbackBox');
+    try {
+      var data = await FP.api.get(WEBHOOK_URL + '?action=get_feedback');
+      var all = (data && data.feedback) || [];
+      var open = all.filter(function(f) { return f.status !== 'done'; });
+      var done = all.filter(function(f) { return f.status === 'done'; });
+      box.classList.toggle('fp-hidden', !all.length);
+      document.getElementById('feedbackList').innerHTML = open.length
+        ? open.map(feedbackItem).join('')
+        : '<li class="inbox-empty">Nothing waiting.</li>';
+      document.getElementById('feedbackDone').classList.toggle('fp-hidden', !done.length);
+      document.getElementById('feedbackDoneSummary').textContent = 'Done (' + done.length + ')';
+      document.getElementById('feedbackDoneList').innerHTML = done.map(feedbackItem).join('');
+    } catch (e) { box.classList.add('fp-hidden'); }
+  }
+
+  document.getElementById('feedbackBox').addEventListener('click', async function(ev) {
+    var btn = ev.target.closest('button[data-act]');
+    if (!btn) return;
+    btn.disabled = true;
+    try {
+      await FP.api.postRead(WEBHOOK_URL + '?action=update_feedback',
+        { id: btn.closest('li').getAttribute('data-id'), status: btn.getAttribute('data-act') === 'done' ? 'done' : 'new' });
+      loadFeedback();
+    } catch (e) { btn.disabled = false; }
+  });
 
   // ── Student picker ──
   async function loadStudents() {
@@ -121,6 +210,6 @@
   }
 
   // ── Init ──
-  if (isTeacher()) { show('portal'); loadStudents(); }
+  if (isTeacher()) { show('portal'); loadStudents(); loadAccountRequests(); loadFeedback(); }
   else { show('login'); }
 })();
