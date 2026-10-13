@@ -594,7 +594,7 @@ function initApp() {
 async function fetchDashboardData() {
   if (!WEBHOOK_URL || !WEBHOOK_URL.includes('script.google.com') || !ex.studentName) return;
   try {
-    var url = WEBHOOK_URL + '?action=get_progress&student=' + encodeURIComponent(ex.studentName);
+    var url = WEBHOOK_URL + '?action=get_progress&include_answers=1&student=' + encodeURIComponent(ex.studentName);
     var data = await FP.api.get(url);
 
     // Merge lesson records from sheet with local records (sheet data takes precedence for new entries)

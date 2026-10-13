@@ -2,6 +2,9 @@
 
 The teacher site is released together with the student site and the backend, and the version numbers are the **backend** versions. The complete notes for each release (backend, student app and teacher site) are in the `fluentpath` repo's `CHANGELOG.md`; this file lists what changed **here**.
 
+## [0.60.0] - 2026-10-13
+- The dashboard asks for lesson answers explicitly (`get_progress&include_answers=1`), because the student-facing progress reply no longer carries them (faster, and now cacheable).
+
 ## [0.59.0] - 2026-10-13
 - **Clean URLs:** the dashboard is `/src/examiner-panel?student=…` (no `.html`); the portal's links, the "log in again" redirect and the emailed links use it. Old `.html` addresses keep working and are tidied in the address bar.
 
