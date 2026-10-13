@@ -455,6 +455,90 @@ async function savePlacementToSheets() {
   FP.hideSaveOverlay();
 }
 
+/** Put the current student's saved values into the Student Profile form. */
+function fillProfileForm() {
+  document.getElementById('prof-student-name').value = ex.studentName;
+
+  document.getElementById('prof-level').value         = ex.studentLevel;
+  document.getElementById('prof-month').value         = ex.studentMonth;
+  document.getElementById('prof-notes').value         = ex.studentNotes;
+  document.getElementById('prof-allow-spanish').checked      = !!ex.allowSpanish;
+  document.getElementById('prof-allow-skip-test').checked    = !!ex.allowSkipTest;
+  document.getElementById('prof-allow-retake-test').checked  = !!ex.allowRetakeTest;
+  var grantEl = document.getElementById('prof-grant-access');
+  if (grantEl) grantEl.checked = !!ex.grantAccess;
+  document.getElementById('prof-notify-test').checked        = !!ex.notifyOnTest;
+  document.getElementById('prof-notify-submission').checked  = !!ex.notifyOnSubmission;
+  document.getElementById('prof-notify-call').checked        = ex.notifyOnCallRequest !== false;
+  if (ex.studentEmail) document.getElementById('prof-email').value = ex.studentEmail;
+}
+
+/**
+ * The sheet is the truth for a student's profile. The page used to reset these to defaults on every
+ * open (so permissions "forgot" what was saved); now it reads them back from the Settings row.
+ */
+function loadStudentProfile() {
+  if (!ex.studentName || !WEBHOOK_URL || WEBHOOK_URL.indexOf('https://') !== 0) return;
+  var asked = ex.studentName;
+  FP.api.get(WEBHOOK_URL + '?action=get_student_profile&student=' + encodeURIComponent(asked))
+    .then(function (d) {
+      if (!d || d.error || ex.studentName !== asked) return;
+      if (d.student_email && !ex.studentEmail) ex.studentEmail = d.student_email;
+      if (d.found) {
+        if (d.cefr_level) ex.studentLevel = d.cefr_level;
+        ex.studentMonth = d.course_month || ex.studentMonth;
+        ex.studentNotes = d.notes || '';
+        ex.allowSpanish = !!d.allow_spanish;
+        ex.allowSkipTest = !!d.allow_skip_test;
+        ex.allowRetakeTest = !!d.allow_retake_test;
+        ex.grantAccess = !!d.access_granted;
+        ex.notifyOnTest = !!d.notify_on_test;
+        ex.notifyOnSubmission = !!d.notify_on_submission;
+        ex.notifyOnCallRequest = d.notify_on_call_request !== false;
+      }
+      fillProfileForm();
+      document.getElementById('sb-student-level').textContent = ex.studentLevel + ' · ' + getLevelTheme(ex.studentLevel);
+      document.getElementById('sb-student-day').textContent = 'Month ' + ex.studentMonth + ' · Day ' + getCurrentDay();
+      saveToLocalStorage();
+    })
+    .catch(function () { /* offline: the form keeps what this device remembers */ });
+}
+
+/** The teacher's own name and notification address (Settings page). Used everywhere a name or email is needed. */
+function loadTeacherSettings() {
+  if (!WEBHOOK_URL || WEBHOOK_URL.indexOf('https://') !== 0) return;
+  FP.api.get(WEBHOOK_URL + '?action=get_teacher_settings')
+    .then(function (d) {
+      if (!d || d.error) return;
+      ex.teacherName = d.teacher_name || ex.teacherName;
+      ex.teacherEmail = d.notify_email || ex.teacherEmail;
+      document.getElementById('set-name').value = ex.teacherName;
+      document.getElementById('set-notify').value = ex.teacherEmail;
+      document.getElementById('set-login').value = d.login_email || '';
+      document.getElementById('dash-greeting-name').textContent = ex.teacherName ? ', ' + ex.teacherName : '';
+      saveToLocalStorage();
+    })
+    .catch(function () { /* offline: the Settings page keeps what this device remembers */ });
+}
+
+async function saveTeacherSettings() {
+  var name = document.getElementById('set-name').value.trim();
+  var email = document.getElementById('set-notify').value.trim();
+  if (!name) { showStatus('settings-save-status', 'Your name is required.', true); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showStatus('settings-save-status', 'A valid notification email is required.', true); return; }
+  showStatus('settings-save-status', 'Saving…', false);
+  try {
+    await teacherWrite({ action: 'update_teacher_settings', teacher_name: name, notify_email: email });
+    ex.teacherName = name;
+    ex.teacherEmail = email;
+    document.getElementById('dash-greeting-name').textContent = ', ' + name;
+    saveToLocalStorage();
+    showStatus('settings-save-status', '✓ Settings saved.', false);
+  } catch (e) {
+    showStatus('settings-save-status', '⚠ NOT saved: ' + e.message, true);
+  }
+}
+
 function initApp() {
   document.getElementById('setup-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
@@ -464,43 +548,15 @@ function initApp() {
   document.getElementById('sb-student-level').textContent = ex.studentLevel + ' · ' + getLevelTheme(ex.studentLevel);
   document.getElementById('sb-student-day').textContent = `Month ${ex.studentMonth} · Day ${getCurrentDay()}`;
 
-  // The profile email defaults to the one the student registered with
-  if (!ex.studentEmail && ex.studentName && WEBHOOK_URL && WEBHOOK_URL.indexOf('https://') === 0) {
-    FP.api.get(WEBHOOK_URL + '?action=get_student_contact&student=' + encodeURIComponent(ex.studentName))
-      .then(function (d) {
-        if (d && d.email && !ex.studentEmail) {
-          ex.studentEmail = d.email;
-          document.getElementById('prof-email').value = d.email;
-          var se = document.getElementById('student-email');
-          if (se && !se.value) se.value = d.email;
-          saveToLocalStorage();
-        }
-      })
-      .catch(function () { /* the field stays empty and the teacher can type it */ });
-  }
-
   // Populate dashboard
   document.getElementById('dash-greeting-name').textContent = ex.teacherName ? ', ' + ex.teacherName : '';
   document.getElementById('dash-student-summary').textContent = ex.studentName
     ? `Tracking ${ex.studentName}'s progress through the ${ex.studentLevel} course.`
     : 'Set up a student profile to start tracking.';
 
-  // Profile form
-  document.getElementById('prof-teacher').value       = ex.teacherName || '';
-  document.getElementById('prof-student-name').value  = ex.studentName;
-  document.getElementById('prof-level').value         = ex.studentLevel;
-  document.getElementById('prof-month').value         = ex.studentMonth;
-  document.getElementById('prof-notes').value         = ex.studentNotes;
-  document.getElementById('prof-allow-spanish').checked      = !!ex.allowSpanish;
-  document.getElementById('prof-allow-skip-test').checked    = !!ex.allowSkipTest;
-  document.getElementById('prof-allow-retake-test').checked  = !!ex.allowRetakeTest;
-  var grantEl = document.getElementById('prof-grant-access');
-  if (grantEl) grantEl.checked = !!ex.grantAccess;
-  document.getElementById('prof-teacher-email').value        = ex.teacherEmail || '';
-  document.getElementById('prof-notify-test').checked        = !!ex.notifyOnTest;
-  document.getElementById('prof-notify-submission').checked  = !!ex.notifyOnSubmission;
-  document.getElementById('prof-notify-call').checked        = ex.notifyOnCallRequest !== false;
-
+  fillProfileForm();
+  loadStudentProfile();
+  loadTeacherSettings();
   buildAttendanceGrid();
   buildDifficultyGrid();
   buildFocusTags();
@@ -779,6 +835,17 @@ function sortClassTable(key) {
   if (classSortKey === key) classSortAsc = !classSortAsc;
   else { classSortKey = key; classSortAsc = true; }
   renderClassTable();
+}
+
+/** From a pending-call notice: show that student's Video Call card. (A real link, so it also works opened in a new tab.) */
+function openStudentCall(name) {
+  if (String(name).toLowerCase().trim() === String(ex.studentName || '').toLowerCase().trim()) {
+    showPanel('profile');
+    var card = document.getElementById('prof-video-card');
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return false; // handled here
+  }
+  return true; // another student: follow the link, which opens their profile at the card
 }
 
 function switchToStudent(name) {
@@ -1827,7 +1894,7 @@ function renderDashboardCallRequests() {
       '<strong>' + escHtml(r.student_name) + '</strong>' +
       ' requested a call' + (r.page ? ' from ' + escHtml(r.page) : '') +
       (when ? ' · ' + escHtml(when) : '') +
-      ' · <a href="#" onclick="event.preventDefault();switchToStudent(\'' + escHtml(r.student_name) + '\')" class="link">open dashboard</a>' +
+      ' · <a href="?student=' + encodeURIComponent(r.student_name) + '&panel=call" onclick="return openStudentCall(\'' + escHtml(r.student_name) + '\')" class="link">answer the request</a>' +
       '</li>';
   }).join('');
   container.style.display = 'block';
@@ -1862,7 +1929,7 @@ function renderProfileCallRequest() {
         '<div class="call-link-row">' +
           '<input type="text" id="call-link-input-' + escHtml(request.id) + '" aria-label="Call link" placeholder="Paste Zoom/WhatsApp/Meet link">' +
           '<button class="btn-primary" onclick="sendCallLink(\'' + escHtml(request.id) + '\')">Send Link</button>' +
-          '<button class="btn-secondary" onclick="markCallDone(\'' + escHtml(request.id) + '\')">Mark as Done</button>' +
+          '<button class="btn-secondary" onclick="markCallDone(\'' + escHtml(request.id) + '\', this)">Mark as Done</button>' +
         '</div>' +
         '<div class="send-status" id="call-status-' + escHtml(request.id) + '"></div>' +
       '</div>';
@@ -1871,7 +1938,7 @@ function renderProfileCallRequest() {
       '<div>' +
         '<p class="u-mb-3 ok-text">' + FP.icon('check_small', { size: 'sm' }) + ' Call link sent to <strong>' + escHtml(ex.studentName) + '</strong>.</p>' +
         '<p class="u-sm u-mb-3 wrap-any"><a class="link" href="' + escHtml(request.call_link) + '" target="_blank" rel="noopener">' + escHtml(request.call_link) + '</a></p>' +
-        '<button class="btn-secondary" onclick="markCallDone(\'' + escHtml(request.id) + '\')">Mark as Done</button>' +
+        '<button class="btn-secondary" onclick="markCallDone(\'' + escHtml(request.id) + '\', this)">Mark as Done</button>' +
         '<div class="send-status" id="call-status-' + escHtml(request.id) + '"></div>' +
       '</div>';
   }
@@ -1901,11 +1968,18 @@ async function sendCallLink(requestId) {
   }
 }
 
-async function markCallDone(requestId) {
+async function markCallDone(requestId, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Marking done…'; }
   try {
     await teacherWrite({ action: 'update_call_status', id: requestId, status: 'done' });
-    setTimeout(loadCallRequests, 500);
-  } catch (e) { FP.ui.toast('Could not mark the call done: ' + e.message, { variant: 'error' }); }
+    FP.ui.toast('Video call marked as done.', { variant: 'success' });
+    await loadCallRequests();
+    var el = document.getElementById('prof-call-request-content');
+    if (el && !el.querySelector('input')) el.innerHTML = '<span class="ok-text">' + FP.icon('check_small', { size: 'sm' }) + ' Marked as done. No other call requests are open.</span>';
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Mark as Done'; }
+    FP.ui.toast('Could not mark the call done: ' + e.message, { variant: 'error' });
+  }
 }
 
 async function promoteStudent() {
@@ -1952,8 +2026,6 @@ function saveProfile() {
   ex.allowRetakeTest     = document.getElementById('prof-allow-retake-test').checked;
   var grantAccessEl      = document.getElementById('prof-grant-access');
   ex.grantAccess         = grantAccessEl ? grantAccessEl.checked : ex.grantAccess;
-  ex.teacherName         = document.getElementById('prof-teacher').value.trim();
-  ex.teacherEmail        = document.getElementById('prof-teacher-email').value;
   ex.notifyOnTest        = document.getElementById('prof-notify-test').checked;
   ex.notifyOnSubmission  = document.getElementById('prof-notify-submission').checked;
   ex.notifyOnCallRequest = document.getElementById('prof-notify-call').checked;
@@ -1971,7 +2043,6 @@ function saveProfile() {
     teacherWrite({
       action: 'update_settings',
       student_name: ex.studentName,
-      teacher_name: ex.teacherName,
       cefr_level: ex.studentLevel,
       allow_spanish: ex.allowSpanish,
       allow_skip_test: ex.allowSkipTest,
@@ -1980,7 +2051,6 @@ function saveProfile() {
       course_month: ex.studentMonth,
       notes: ex.studentNotes,
       difficulty_json: buildDifficultyJson(),
-      teacher_email: ex.teacherEmail || '',
       student_email: ex.studentEmail || '',
       notify_on_test: ex.notifyOnTest || false,
       notify_on_submission: ex.notifyOnSubmission || false,
@@ -2312,6 +2382,11 @@ window.addEventListener('DOMContentLoaded', () => {
     panelLoaded = {}; // force all panels to reload for the new student
     saveToLocalStorage();
     initApp();
+    if (urlParams.get('panel') === 'call') {
+      showPanel('profile');
+      var vc = document.getElementById('prof-video-card');
+      if (vc) vc.scrollIntoView({ block: 'start' });
+    }
   } else if (hasSaved && ex.studentName) {
     // Returning visit with saved student data
     initApp();
