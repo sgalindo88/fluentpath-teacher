@@ -2,6 +2,9 @@
 
 The teacher site is released together with the student site and the backend, and the version numbers are the **backend** versions. The complete notes for each release (backend, student app and teacher site) are in the `fluentpath` repo's `CHANGELOG.md`; this file lists what changed **here**.
 
+## [0.61.2] - 2026-10-13
+- Service worker `fp-teacher-v16` (generated, shared with the student site): Google Fonts in their own long-lived cache, dead API cache removed. Synced `utils.js` (`makeRestartGate`). No other teacher-site change.
+
 ## [0.61.1] - 2026-10-13
 - Service worker `fp-teacher-v15` (generated, shared with the student site): a URL carrying a secret (`reset`, `token`, `session`, `code`) is never cached, and page navigations are matched without their query. Synced `call-request.js` (`setDay`).
 
