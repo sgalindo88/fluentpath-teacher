@@ -75,7 +75,12 @@
       var res = await FP.api.postRead(WEBHOOK_URL + '?action=create_account',
         { student_name: name, email: email, password: pw, role: 'student' });
       if (res && res.ok) {
-        setMsg(st, 'Account created for ' + name + '.', true);
+        // Say what happens next: the student can log in now, but the course is locked until the
+        // teacher switches on free access in the student's profile.
+        st.className = 'auth-msg ok';
+        st.innerHTML = 'Account created for ' + escHtml(name) + '. They can log in now. ' +
+          '<a class="link" href="src/examiner-panel.html?student=' + encodeURIComponent(name) + '">Open their dashboard</a>' +
+          ' to switch on free course access (Student Profile).';
         document.getElementById('caName').value = '';
         document.getElementById('caEmail').value = '';
         document.getElementById('caPassword').value = '';
@@ -84,7 +89,8 @@
         setMsg(st, (res && (res.error || res.message)) || 'Could not create account.');
       }
     } catch (e) {
-      setMsg(st, e.message || 'Could not create account.');
+      setMsg(st, (e.message || 'Could not create account.') + ' The account may still have been created: check the list above (and try logging in) before creating it again.');
+      loadStudents();
     } finally {
       btn.disabled = false;
       btn.textContent = btnLabel;

@@ -31,3 +31,6 @@ h1, h2, h3, p { margin: 0; }
 .loading-msg .fp-spinner { vertical-align: -3px; margin-right: var(--space-2); }
 
 .footer { margin-top: var(--space-12); text-align: center; font-size: var(--font-size-sm); color: var(--text-muted); }
+
+.link { color: var(--fp-navy-900); font-weight: var(--font-weight-semibold); text-decoration: underline; }
+.auth-msg.ok { overflow-wrap: anywhere; }
