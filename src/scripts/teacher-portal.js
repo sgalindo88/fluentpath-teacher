@@ -7,6 +7,10 @@
     document.getElementById('portalView').classList.toggle('fp-hidden', view !== 'portal');
   }
 
+  // An 'Unauthorized' reply while we are on this page means: show the login form (not reload).
+  FP.isLoginPage = true;
+  FP.onLoginRequired = function () { show('login'); };
+
   function isTeacher() {
     return !!(FP.getSession && FP.getSession()) && localStorage.getItem(FP.KEYS.ROLE) === 'teacher';
   }
