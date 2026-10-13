@@ -419,11 +419,11 @@ async function savePlacementToSheets() {
     candidate_name: ex.studentName,
     test_date: new Date().toISOString().split('T')[0],
     examiner: ex.teacherName,
-    reading_score: r + ' / 20',
-    writing_score: w + ' / 25',
-    listening_score: l + ' / 15',
-    speaking_score: s + ' / 20',
-    total_score: total + ' / ' + FP.TEST_TOTAL_MARKS,
+    reading_score: r,
+    writing_score: w,
+    listening_score: l,
+    speaking_score: s,
+    total_score: total,
     cefr_level: ptGetCEFR(total),
     examiner_feedback: document.getElementById('pt-overall-feedback').value || '',
     score_q11: ptScores.q11 || 0,
@@ -463,6 +463,21 @@ function initApp() {
   document.getElementById('sb-student-name').textContent = ex.studentName || 'No student yet';
   document.getElementById('sb-student-level').textContent = ex.studentLevel + ' · ' + getLevelTheme(ex.studentLevel);
   document.getElementById('sb-student-day').textContent = `Month ${ex.studentMonth} · Day ${getCurrentDay()}`;
+
+  // The profile email defaults to the one the student registered with
+  if (!ex.studentEmail && ex.studentName && WEBHOOK_URL && WEBHOOK_URL.indexOf('https://') === 0) {
+    FP.api.get(WEBHOOK_URL + '?action=get_student_contact&student=' + encodeURIComponent(ex.studentName))
+      .then(function (d) {
+        if (d && d.email && !ex.studentEmail) {
+          ex.studentEmail = d.email;
+          document.getElementById('prof-email').value = d.email;
+          var se = document.getElementById('student-email');
+          if (se && !se.value) se.value = d.email;
+          saveToLocalStorage();
+        }
+      })
+      .catch(function () { /* the field stays empty and the teacher can type it */ });
+  }
 
   // Populate dashboard
   document.getElementById('dash-greeting-name').textContent = ex.teacherName ? ', ' + ex.teacherName : '';
@@ -848,7 +863,7 @@ function buildAttendanceGrid() {
     const isToday = d === today;
     const cell = document.createElement('div');
     cell.className = 'attend-cell' + (status === 'present' ? ' present' : status === 'absent' ? ' absent' : '') + (isToday ? ' today' : '');
-    cell.innerHTML = `<span>${status === 'present' ? FP.icon('check_small', { size: 'sm' }) : status === 'absent' ? FP.icon('close_small', { size: 'sm' }) : '·'}</span><span class="ac-num">Day ${d}</span>`;
+    cell.innerHTML = `<span>${status === 'present' ? FP.icon('check_small', { size: 'sm' }) : status === 'absent' ? FP.icon('close_small', { size: 'sm' }) : '·'}</span><span class="ac-num">Day ${d}${isToday ? ' · TODAY' : ''}</span>`;
     cell.setAttribute('role', 'button'); cell.tabIndex = 0;
     cell.setAttribute('aria-label', 'Day ' + d + ': ' + (status === 'present' ? 'present' : status === 'absent' ? 'absent' : 'not marked') + (isToday ? ' (today)' : ''));
     cell.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleAttendance(d); } };
@@ -1058,15 +1073,7 @@ function displaySubmission(data) {
   }
 
   // ── Graded badge ──
-  var badge = document.getElementById('graded-badge');
-  badge.style.display = 'inline-block';
-  if (data.has_marks) {
-    badge.textContent = 'GRADED';
-    badge.className = 'pill approved';
-  } else {
-    badge.textContent = 'UNGRADED';
-    badge.className = 'pill pending';
-  }
+  setGradedBadge(!!data.has_marks);
 
   // ── Writing tab: warmup, vocab, writing task ──
   document.getElementById('student-warmup').textContent = data.warmup_response || answers.warmup || '(none)';
@@ -1187,10 +1194,14 @@ function renderSpeakingAudio(audioJsonStr) {
   drillContainer.innerHTML = '';
   convContainer.innerHTML  = '';
 
-  if (!audioJsonStr) return;
+  const none = function () {
+    section.style.display = 'block';
+    drillContainer.innerHTML = '<p class="u-sm u-muted">No recording was saved with this lesson. The student may have reloaded the page before finishing (recordings are lost on reload), or the upload failed. Check the Error Log tab in the sheet.</p>';
+  };
+  if (!audioJsonStr) return none();
   let audio;
-  try { audio = JSON.parse(audioJsonStr); } catch(e) { return; }
-  if (!audio || typeof audio !== 'object' || Array.isArray(audio)) return;
+  try { audio = JSON.parse(audioJsonStr); } catch(e) { return none(); }
+  if (!audio || typeof audio !== 'object' || Array.isArray(audio)) return none();
 
   // N-2: `audio` is student-supplied JSON. Keys are never placed in HTML or used
   // as element ids (the DOM ids below are positional), and a key must look like
@@ -1198,7 +1209,7 @@ function renderSpeakingAudio(audioJsonStr) {
   const drillKeys = Object.keys(audio).filter(k => /^[A-Za-z0-9_-]{1,40}$/.test(k) && !k.includes('_score') && k !== 'conversation').sort();
   const convId    = audio['conversation'];
 
-  if (drillKeys.length === 0 && !convId) return;
+  if (drillKeys.length === 0 && !convId) return none();
   section.style.display = 'block';
 
   // Parse drill transcripts from answers_json
@@ -1738,9 +1749,9 @@ async function saveToSheet() {
     lesson_date: ex.markingData?.lesson_date || new Date().toISOString().split('T')[0],
     day_number: ex.markingData?.day_number || getCurrentDay(),
     level: ex.studentLevel,
-    writing_score: w + ' / 25',
-    speaking_score: s + ' / 20',
-    total_score: grandTotal + ' / ' + grandMax,
+    writing_score: w,
+    speaking_score: s,
+    total_score: grandTotal,
     writing_breakdown: JSON.stringify(ex.writingScores),
     speaking_breakdown: JSON.stringify(ex.speakingScores),
     overall_feedback: document.getElementById('overall-feedback')?.value || '',
@@ -1751,6 +1762,7 @@ async function saveToSheet() {
     await teacherWrite(payload);
     showStatus('sheet-status', '✓ Grades saved to Google Sheet.', false);
     invalidateSubmissionCache();
+    setGradedBadge(true);
 
     // Update local record
     const day = ex.markingData?.day_number || getCurrentDay();
@@ -1865,14 +1877,24 @@ function renderProfileCallRequest() {
   }
 }
 
+function setGradedBadge(graded) {
+  var badge = document.getElementById('graded-badge');
+  if (!badge) return;
+  badge.style.display = 'inline-block';
+  badge.textContent = graded ? 'GRADED' : 'UNGRADED';
+  badge.className = graded ? 'pill approved' : 'pill pending';
+}
+
 async function sendCallLink(requestId) {
   var input = document.getElementById('call-link-input-' + requestId);
   var link = (input.value || '').trim();
   if (!link) { showStatus('call-status-' + requestId, 'Please paste a call link first.', true); return; }
   if (!/^https?:\/\//i.test(link)) { showStatus('call-status-' + requestId, 'Link must start with http:// or https://', true); return; }
   try {
-    await teacherWrite({ action: 'send_call_link', id: requestId, call_link: link });
-    showStatus('call-status-' + requestId, '✓ Link sent to student.', false);
+    var sent = await teacherWrite({ action: 'send_call_link', id: requestId, call_link: link });
+    showStatus('call-status-' + requestId, sent.emailed
+      ? '✓ Link saved and emailed to the student. They also see it in their app.'
+      : '✓ Link saved; the student will see it in their app. No email was sent because there is no email address for them (add one in Student Profile).', false);
     setTimeout(loadCallRequests, 500);
   } catch (e) {
     showStatus('call-status-' + requestId, '⚠ Could not send: ' + e.message, true);
@@ -1917,9 +1939,11 @@ function saveProfile() {
   const level   = document.getElementById('prof-level').value;
   if (!student) { showStatus('profile-save-status', 'Student name is required.', true); return; }
   if (!level)   { showStatus('profile-save-status', 'Student level is required.', true); return; }
+  var emailVal = document.getElementById('prof-email').value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) { showStatus('profile-save-status', 'Student email is required (it is where call links and results are sent).', true); document.getElementById('prof-email').focus(); return; }
 
   ex.studentName         = student;
-  ex.studentEmail        = document.getElementById('prof-email').value;
+  ex.studentEmail        = emailVal;
   ex.studentLevel        = level;
   ex.studentMonth        = parseInt(document.getElementById('prof-month').value);
   ex.studentNotes        = document.getElementById('prof-notes').value;

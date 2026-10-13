@@ -108,7 +108,7 @@ button { font-family: inherit; }
 @media (hover: hover) { .attend-cell:hover { border-color: var(--fp-navy-900); } }
 .attend-cell.present { background: var(--status-success-bg); border-color: var(--text-success); color: var(--text-success); }
 .attend-cell.absent { background: var(--status-error-bg); border-color: var(--status-error); color: var(--text-error); }
-.attend-cell.today { outline: 2px solid var(--fp-navy-900); outline-offset: 2px; }
+.attend-cell.today { outline: 3px solid var(--fp-coral-500); outline-offset: 2px; background-image: linear-gradient(var(--fp-coral-500), var(--fp-coral-500)); background-size: 100% 4px; background-repeat: no-repeat; background-position: top; }
 
 /* ── Buttons (same sizes and states as .fp-btn) ────────────── */
 .btn-primary, .btn-secondary, .btn-success, .btn-approve, .btn-reject, .btn-preview, .diff-btn, .wk-tab {
