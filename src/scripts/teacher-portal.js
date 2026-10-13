@@ -68,7 +68,7 @@
     var st = document.getElementById('caStatus');
     var btn = document.getElementById('caBtn');
     setMsg(st, '');
-    if (!name || !email || !pw) { setMsg(st, 'All fields are required.'); return; }
+    if (!name || !email) { setMsg(st, 'Name and email are required.'); return; }
     if (btn.disabled) return; // guard against double-submit
     var btnLabel = btn.textContent;
     btn.disabled = true;
@@ -80,7 +80,11 @@
         // Say what happens next: the student can log in now, but the course is locked until the
         // teacher switches on free access in the student's profile.
         st.className = 'auth-msg ok';
-        st.innerHTML = 'Account created for ' + escHtml(name) + '. They can log in now. ' +
+        var next = res.emailed
+          ? 'We emailed ' + escHtml(email) + ' a link to choose their own password (it works for 7 days). '
+          : 'The email could not be sent, so ' + (pw ? 'give them the password you typed, or ' : '') +
+            'ask them to tap "Forgot password?" on the log in page. ';
+        st.innerHTML = 'Account created for ' + escHtml(name) + '. ' + next +
           '<a class="link" href="src/examiner-panel.html?student=' + encodeURIComponent(name) + '">Open their dashboard</a>' +
           ' to switch on free course access (Student Profile).';
         document.getElementById('caName').value = '';
