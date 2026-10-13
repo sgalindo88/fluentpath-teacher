@@ -178,7 +178,7 @@ body { background:var(--paper); color:var(--ink); font-family:var(--font-family-
 .mark-val span { font-size:13px; color:var(--muted); }
 .mark-notes {
   width:100%; min-height:80px; border:1px solid var(--rule); border-bottom:2px solid var(--ink);
-  background:white; padding:12px; font-family:var(--font-family-primary); font-size:13px;
+  background:white; padding:12px; font-family:var(--font-family-primary); font-size:var(--font-size-input);
   color:var(--ink); outline:none; resize:vertical; line-height:1.7;
 }
 .mark-notes:focus { border-bottom-color:var(--rust); }
@@ -222,7 +222,7 @@ body { background:var(--paper); color:var(--ink); font-family:var(--font-family-
 .pf label { font-size:9px; letter-spacing:0.25em; text-transform:uppercase; color:var(--muted); font-weight:600; display:block; margin-bottom:6px; }
 .pf input, .pf select, .pf textarea {
   width:100%; background:white; border:1px solid var(--rule); border-bottom:2px solid var(--ink);
-  padding:10px 12px; font-family:var(--font-family-primary); font-size:14px; color:var(--ink); outline:none;
+  padding:10px 12px; font-family:var(--font-family-primary); font-size:var(--font-size-input); color:var(--ink); outline:none;
 }
 .pf input:focus, .pf select:focus, .pf textarea:focus { border-bottom-color:var(--rust); }
 .pf textarea { min-height:80px; resize:vertical; }
