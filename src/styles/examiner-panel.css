@@ -362,3 +362,6 @@ kbd { padding: 1px 6px; border: 1px solid var(--border-accessible); border-radiu
 .btn-primary .fp-icon, .btn-secondary .fp-icon { width: 1.25rem; height: 1.25rem; }
 .send-status:empty { display: none; }
 .card-label .fp-icon { vertical-align: -3px; margin-right: var(--space-1); }
+
+/* Archive / delete card: space below the Save and Download row above it */
+#danger-zone { margin-top: var(--space-8); }

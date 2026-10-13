@@ -944,24 +944,61 @@ function leaveStudent() {
   location.href = '../';
 }
 
+/** A status line with a spinner for work in progress (stays until replaced). */
+function showProgress(id, text) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '<span class="fp-spinner" aria-hidden="true"></span><span>' + escHtml(text) + '</span>';
+  el.className = 'send-status show';
+  el.setAttribute('role', 'status');
+}
+
+/**
+ * Run one of the three student actions with feedback: all three buttons are disabled, the pressed one
+ * says what it is doing, and a status line with a spinner stays up until the answer comes back.
+ * `work` returns 'leaving' on a success that ends with leaving the page (the buttons then stay off).
+ */
+async function runStudentAction(btnId, busyLabel, progressText, work) {
+  var ids = ['archive-btn', 'restore-btn', 'delete-btn'];
+  var btns = ids.map(function (i) { return document.getElementById(i); }).filter(Boolean);
+  var pressed = document.getElementById(btnId);
+  var label = pressed ? pressed.textContent : '';
+  btns.forEach(function (b) { b.disabled = true; });
+  if (pressed) pressed.textContent = busyLabel;
+  showProgress('danger-status', progressText);
+  var leaving = false;
+  try {
+    leaving = (await work()) === 'leaving'; // work() says 'leaving' when the page is about to navigate away
+  } catch (e) {
+    showStatus('danger-status', 'Not done: ' + e.message, true);
+  }
+  if (!leaving) { // on an error, or when the page stays, the buttons come back
+    btns.forEach(function (b) { b.disabled = false; });
+    if (pressed) pressed.textContent = label;
+  }
+}
+
 async function archiveStudent() {
   if (!await confirmDialog({
     title: 'Archive ' + ex.studentName + '?',
     message: 'They will not be able to log in and will disappear from your student list. Nothing is erased, and you can restore them later from the student list page.',
     confirmLabel: 'Archive student', danger: false })) return;
-  try {
+  await runStudentAction('archive-btn', 'Archiving…', 'Archiving ' + ex.studentName + '. Switching off their login…', async function () {
     await teacherWrite({ action: 'archive_student', student_name: ex.studentName });
+    showStatus('danger-status', 'Archived. Taking you back to the student list…', false);
     FP.ui.toast('Archived. Back to the student list.', { variant: 'success' });
-    setTimeout(leaveStudent, 900);
-  } catch (e) { showStatus('danger-status', 'Not archived: ' + e.message, true); }
+    setTimeout(leaveStudent, 1200);
+    return 'leaving';
+  });
 }
 
 async function restoreStudent() {
-  try {
+  await runStudentAction('restore-btn', 'Restoring…', 'Restoring ' + ex.studentName + '. Switching their login back on…', async function () {
     await teacherWrite({ action: 'restore_student', student_name: ex.studentName });
     showArchivedState(false);
     showStatus('danger-status', 'Restored. They can log in again.', false);
-  } catch (e) { showStatus('danger-status', 'Not restored: ' + e.message, true); }
+    FP.ui.toast('Restored. ' + ex.studentName + ' can log in again.', { variant: 'success' });
+  });
 }
 
 async function deleteStudent() {
@@ -970,16 +1007,14 @@ async function deleteStudent() {
     title: 'Delete ' + name + ' permanently?',
     message: 'This erases their account, placement test, lessons, marks, attendance, settings and recordings. It cannot be undone. If you only want them gone from your list, use Archive instead.',
     typeToConfirm: name, confirmLabel: 'Delete permanently', danger: true })) return;
-  var btn = document.getElementById('delete-btn');
-  if (btn) btn.disabled = true;
-  try {
+  await runStudentAction('delete-btn', 'Deleting…', 'Deleting ' + name + '. Erasing their records and recordings. This can take a minute: please stay on this page…', async function () {
     var res = await teacherWrite({ action: 'delete_student', student_name: name, confirm_name: name });
-    FP.ui.toast('Deleted ' + name + (res.recordings_trashed ? ' and their recordings (moved to the Drive trash).' : '.'), { variant: 'success' });
-    setTimeout(leaveStudent, 1200);
-  } catch (e) {
-    if (btn) btn.disabled = false;
-    showStatus('danger-status', 'Not deleted: ' + e.message, true);
-  }
+    var msg = 'Deleted ' + name + (res.recordings_trashed ? ' and their recordings (moved to the Drive trash).' : '.');
+    showStatus('danger-status', msg + ' Taking you back to the student list…', false);
+    FP.ui.toast(msg, { variant: 'success' });
+    setTimeout(leaveStudent, 1800);
+    return 'leaving';
+  });
 }
 
 function switchToStudent(name) {

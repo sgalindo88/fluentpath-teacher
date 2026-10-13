@@ -211,12 +211,19 @@
   document.getElementById('archivedList').addEventListener('click', async function(ev) {
     var btn = ev.target.closest('button[data-act="restore"]');
     if (!btn) return;
+    var label = btn.textContent;
     btn.disabled = true;
+    btn.textContent = 'Restoring…';
     try {
-      await FP.api.postRead(WEBHOOK_URL + '?action=restore_student', { student_name: btn.closest('li').getAttribute('data-name') });
+      var res = await FP.api.postRead(WEBHOOK_URL + '?action=restore_student', { student_name: btn.closest('li').getAttribute('data-name') });
+      if (!res || res.result !== 'success') throw new Error((res && (res.message || res.error)) || 'The server did not confirm');
       loadArchived();
       loadStudents();
-    } catch (e) { btn.disabled = false; }
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = label;
+      btn.insertAdjacentHTML('afterend', '<span class="inbox-meta" role="alert">Not restored: ' + escHtml(e.message) + '</span>');
+    }
   });
 
   // ── Student picker ──
