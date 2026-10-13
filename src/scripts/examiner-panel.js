@@ -617,11 +617,32 @@ function getCurrentDay() {
 // ══════════════════════════════════════════════════════
 var panelLoaded = {};
 
+// ── Navigation drawer (under 768px the sidebar is off-canvas; UX-5) ──
+function openNav() {
+  document.getElementById('sidebar').classList.add('is-open');
+  document.getElementById('navScrim').classList.add('is-open');
+  document.getElementById('navToggle').setAttribute('aria-expanded', 'true');
+  var first = document.querySelector('#sidebar .sb-link.active') || document.querySelector('#sidebar .sb-link');
+  if (first) first.focus();
+}
+function closeNav() {
+  var bar = document.getElementById('sidebar');
+  if (!bar.classList.contains('is-open')) return;
+  bar.classList.remove('is-open');
+  document.getElementById('navScrim').classList.remove('is-open');
+  var t = document.getElementById('navToggle');
+  t.setAttribute('aria-expanded', 'false');
+  if (window.matchMedia('(max-width: 767px)').matches) t.focus();
+}
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeNav(); });
+
 function showPanel(id) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.sb-link').forEach(l => l.classList.remove('active'));
+  document.querySelectorAll('.sb-link').forEach(l => { l.classList.remove('active'); l.removeAttribute('aria-current'); });
   document.getElementById('panel-' + id).classList.add('active');
-  document.getElementById('nav-' + id)?.classList.add('active');
+  var link = document.getElementById('nav-' + id);
+  if (link) { link.classList.add('active'); link.setAttribute('aria-current', 'page'); }
+  closeNav();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 
   // Load panel data only on first visit (or when forced)

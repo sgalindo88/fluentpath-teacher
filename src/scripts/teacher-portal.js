@@ -3,8 +3,8 @@
   var listEl = document.getElementById('studentList');
 
   function show(view) {
-    document.getElementById('loginView').style.display = view === 'login' ? 'block' : 'none';
-    document.getElementById('portalView').style.display = view === 'portal' ? 'block' : 'none';
+    document.getElementById('loginView').classList.toggle('fp-hidden', view !== 'login');
+    document.getElementById('portalView').classList.toggle('fp-hidden', view !== 'portal');
   }
 
   function isTeacher() {
@@ -13,8 +13,7 @@
 
   function setMsg(el, text, ok) {
     el.textContent = text;
-    el.className = 'auth-msg ' + (ok ? 'ok' : 'err');
-    el.style.display = text ? 'block' : 'none';
+    el.className = 'auth-msg ' + (ok ? 'ok' : 'err') + (text ? '' : ' fp-hidden');
   }
 
   // ── Login / logout ──
@@ -103,7 +102,7 @@
         card.href = 'src/examiner-panel.html?student=' + encodeURIComponent(s.name);
         card.innerHTML =
           '<div class="student-name">' + escHtml(s.name) + '</div>' +
-          '<span class="student-arrow">&rarr;</span>';
+          '<span class="student-arrow">' + FP.icon('arrow_right_alt') + '</span>';
         listEl.appendChild(card);
       });
     } catch (e) {

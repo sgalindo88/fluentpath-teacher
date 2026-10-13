@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="fp-no-es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Teacher Dashboard · FluentPath</title>
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#1E2A38">
@@ -20,82 +20,65 @@
 
 <!-- ══════════════════ SETUP SCREEN ══════════════════ -->
 <div id="setup-screen" class="setup-screen">
-  <div style="font-size:10px;letter-spacing:0.45em;text-transform:uppercase;color:var(--rust);font-weight:600;margin-bottom:20px;">FLUENTPATH</div>
-  <h1>Teacher <em>Dashboard</em></h1>
-  <p class="setup-sub">Enter a student name to open the dashboard. You can also select a student from the <a href="../teacher.html" style="color:var(--rust);text-decoration:none;">Teacher Portal</a>.</p>
-  <div class="setup-rule"></div>
+  <img class="fp-logo fp-logo--stacked" src="img/logo-stacked.svg" alt="FluentPath">
+  <h1>Teacher Dashboard</h1>
+  <p class="setup-sub">Enter a student name to open the dashboard. You can also select a student from the <a href="../">Teacher Portal</a>.</p>
 
-  <div class="setup-box">
-    <div class="pf"><label>Student Name <span style="color:var(--rust)">*</span></label><input type="text" id="setup-student" placeholder="e.g. Maria Gonzalez"></div>
-  </div>
+  <form class="setup-box" onsubmit="setupExaminer();return false;">
+    <div class="pf"><label for="setup-student">Student name</label><input type="text" id="setup-student" placeholder="e.g. Maria Gonzalez" autocomplete="off"></div>
+  </form>
 
-  <button class="btn-primary" onclick="setupExaminer()">Open Teacher Dashboard →</button>
+  <button class="fp-btn fp-btn--primary" type="button" onclick="setupExaminer()"><span>Open Teacher Dashboard</span><i data-icon="arrow_right_alt"></i></button>
 </div>
 
 <!-- ══════════════════ APP ══════════════════ -->
 <div id="app" style="display:none;">
 
-  <!-- Topbar -->
-  <div class="topbar">
+  <!-- Header -->
+  <header class="topbar">
     <div class="topbar-left">
-      <div class="topbar-title"><em>Fluent</em>Path</div>
-      <div class="topbar-sub">TEACHER DASHBOARD</div>
+      <button type="button" class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar" onclick="openNav()"><i data-icon="menu"></i></button>
+      <a class="topbar-title" href="../" aria-label="FluentPath teacher portal"><img class="fp-logo" src="img/logo-primary-horizontal.svg" alt="FluentPath"></a>
+      <div class="topbar-sub">Teacher dashboard</div>
     </div>
     <div class="topbar-right">
-      <div class="topbar-badge" onclick="showPanel('profile')">⚙ Settings</div>
+      <button type="button" class="topbar-badge" onclick="showPanel('profile')" aria-label="Settings"><i data-icon="settings" data-icon-size="sm"></i><span class="topbar-badge__label">Settings</span></button>
     </div>
-  </div>
+  </header>
+
+  <div class="nav-scrim" id="navScrim" onclick="closeNav()"></div>
 
   <div class="layout">
-    <!-- Sidebar -->
-    <div class="sidebar">
+    <!-- Sidebar (a drawer under 768px) -->
+    <nav class="sidebar nav-rail" id="sidebar" aria-label="Dashboard sections">
+      <button type="button" class="sidebar__close" id="navClose" aria-label="Close menu" onclick="closeNav()"><i data-icon="close_small"></i></button>
       <div class="sb-student-info">
-        <div class="ssi-label">CURRENT STUDENT</div>
+        <div class="ssi-label">Current student</div>
         <div class="ssi-name" id="sb-student-name">—</div>
         <div class="ssi-level" id="sb-student-level">—</div>
         <div class="ssi-day" id="sb-student-day">Month 1 · Day —</div>
       </div>
 
-      <div class="sb-section">CLASS</div>
-      <div class="sb-link" id="nav-classoverview" onclick="showPanel('classoverview')">
-        <div class="sb-icon">👥</div> Class Overview
-      </div>
+      <div class="sb-section">Class</div>
+      <button type="button" class="sb-link" id="nav-classoverview" onclick="showPanel('classoverview')"><span class="sb-icon"><i data-icon="group"></i></span>Class Overview</button>
 
-      <div class="sb-section">LESSONS</div>
-      <div class="sb-link active" id="nav-dashboard" onclick="showPanel('dashboard')">
-        <div class="sb-icon">📊</div> Dashboard
-      </div>
-      <div class="sb-link" id="nav-attendance" onclick="showPanel('attendance')">
-        <div class="sb-icon">📅</div> Attendance
-      </div>
+      <div class="sb-section">Lessons</div>
+      <button type="button" class="sb-link active" id="nav-dashboard" onclick="showPanel('dashboard')" aria-current="page"><span class="sb-icon"><i data-icon="bar_chart"></i></span>Dashboard</button>
+      <button type="button" class="sb-link" id="nav-attendance" onclick="showPanel('attendance')"><span class="sb-icon"><i data-icon="calendar_month"></i></span>Attendance</button>
 
-      <div class="sb-section">MARKING</div>
-      <div class="sb-link" id="nav-placementtest" onclick="showPanel('placementtest')">
-        <div class="sb-icon">📋</div> Grade Placement Test
-      </div>
-      <div class="sb-link" id="nav-marking" onclick="showPanel('marking')">
-        <div class="sb-icon">✏️</div> Grade Lessons
-      </div>
-      <div class="sb-link" id="nav-weekly" onclick="showPanel('weekly')">
-        <div class="sb-icon">📝</div> Weekly Summaries
-      </div>
+      <div class="sb-section">Marking</div>
+      <button type="button" class="sb-link" id="nav-placementtest" onclick="showPanel('placementtest')"><span class="sb-icon"><i data-icon="assignment"></i></span>Grade Placement Test</button>
+      <button type="button" class="sb-link" id="nav-marking" onclick="showPanel('marking')"><span class="sb-icon"><i data-icon="edit"></i></span>Grade Lessons</button>
+      <button type="button" class="sb-link" id="nav-weekly" onclick="showPanel('weekly')"><span class="sb-icon"><i data-icon="description"></i></span>Weekly Summaries</button>
 
-      <div class="sb-section">COURSE</div>
-      <div class="sb-link" id="nav-difficulty" onclick="showPanel('difficulty')">
-        <div class="sb-icon">🎚</div> Adjust Difficulty
-      </div>
-      <div class="sb-link" id="nav-progress" onclick="showPanel('progress')">
-        <div class="sb-icon">📈</div> Progress Tracker
-      </div>
-      <div class="sb-link" id="nav-library" onclick="showPanel('library')">
-        <div class="sb-icon">📚</div> Lesson Library
-      </div>
+      <div class="sb-section">Course</div>
+      <button type="button" class="sb-link" id="nav-difficulty" onclick="showPanel('difficulty')"><span class="sb-icon"><i data-icon="tune"></i></span>Adjust Difficulty</button>
+      <button type="button" class="sb-link" id="nav-progress" onclick="showPanel('progress')"><span class="sb-icon"><i data-icon="trending_up"></i></span>Progress Tracker</button>
+      <button type="button" class="sb-link" id="nav-library" onclick="showPanel('library')"><span class="sb-icon"><i data-icon="auto_stories"></i></span>Lesson Library</button>
 
-      <div class="sb-section">STUDENT</div>
-      <div class="sb-link" id="nav-profile" onclick="showPanel('profile')">
-        <div class="sb-icon">👤</div> Student Profile
-      </div>
-    </div>
+      <div class="sb-section">Student</div>
+      <button type="button" class="sb-link" id="nav-profile" onclick="showPanel('profile')"><span class="sb-icon"><i data-icon="person"></i></span>Student Profile</button>
+    </nav>
 
     <!-- Main content -->
     <div class="main-content">

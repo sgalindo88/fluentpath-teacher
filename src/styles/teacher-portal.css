@@ -1,36 +1,33 @@
-*{margin:0;padding:0;box-sizing:border-box;}
-html{background:var(--paper);color:var(--ink);}
-body{font-family:var(--font-family-primary);font-weight:400;line-height:1.7;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 24px;}
-h1,h2,h3{font-family:var(--font-family-primary);font-weight:700;line-height:1.2;}
+/* ═══════════════════════════════════════════════════════════════
+   FluentPath — Teacher portal (index.html): sign in, pick a student, create an account.
+   Built from tokens.css + components.css. English only (fp-no-es on <html>).
+   ═══════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; line-height: 1.6; min-height: 100vh; min-height: 100dvh; }
+h1, h2, h3, p { margin: 0; }
 
-.container{max-width:520px;width:100%;text-align:center;}
+.container { max-width: 520px; margin: 0 auto; padding: var(--space-8) var(--space-4) calc(var(--space-12) + env(safe-area-inset-bottom)); padding-left: max(var(--space-4), env(safe-area-inset-left)); padding-right: max(var(--space-4), env(safe-area-inset-right)); }
+.portal-head { text-align: center; margin-bottom: var(--space-8); }
+.portal-head .fp-logo--stacked { height: 88px; }
+.portal-title { margin-top: var(--space-3); font-size: var(--font-size-h2); font-weight: var(--font-weight-bold); }
 
-.header{margin-bottom:40px;}
-.header h1{font-size:clamp(36px,7vw,52px);margin-bottom:6px;}
-.header h1 .accent{color:var(--rust);font-style:italic;}
-.header .subtitle{font-size:15px;color:var(--muted);font-style:italic;}
-.header .role-badge{display:inline-block;font-size:10px;letter-spacing:0.3em;text-transform:uppercase;font-weight:600;color:var(--gold);border:1px solid var(--gold);padding:4px 14px;border-radius:3px;margin-top:16px;}
-.divider{width:60px;height:2px;background:var(--gold);margin:20px auto 0;}
+.section-label { font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+.portal-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
 
-.card-grid{display:flex;flex-direction:column;gap:16px;margin-bottom:32px;}
+.auth-box { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-6); }
+#loginView .auth-box { margin-top: 0; }
+.fp-hint { font-size: var(--font-size-sm); color: var(--text-muted); }
+.auth-msg { font-size: var(--font-size-sm); }
+.auth-msg.err { color: var(--text-error); font-weight: var(--font-weight-semibold); }
+.auth-msg.ok { color: var(--text-success); font-weight: var(--font-weight-semibold); }
 
-.student-list{display:flex;flex-direction:column;gap:10px;margin-bottom:24px;text-align:left;}
-.student-card{background:var(--cream);border:1px solid var(--rule);border-radius:6px;padding:18px 22px;text-decoration:none;color:var(--ink);display:flex;align-items:center;justify-content:space-between;transition:all 0.2s;cursor:pointer;}
-.student-card:hover{border-color:var(--ink);transform:translateY(-2px);box-shadow:0 4px 16px rgba(26,18,8,0.1);}
-.student-name{font-family:var(--font-family-primary);font-size:17px;font-weight:700;}
-.student-date{font-size:12px;color:var(--muted);font-style:italic;margin-top:2px;}
-.student-arrow{color:var(--rust);font-size:18px;transition:transform 0.2s;flex-shrink:0;}
-.student-card:hover .student-arrow{transform:translateX(4px);}
+.student-list { display: flex; flex-direction: column; gap: var(--space-2); }
+.student-card { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 56px; padding: var(--space-3) var(--space-4); background: var(--surface-card); color: var(--text-primary); text-decoration: none; border: 1.5px solid var(--border-accessible); border-radius: var(--radius-md); transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
+@media (hover: hover) { .student-card:hover { border-color: var(--fp-navy-900); box-shadow: var(--elevation-2); } }
+.student-name { font-size: var(--font-size-body-lg); font-weight: var(--font-weight-bold); overflow-wrap: anywhere; }
+.student-arrow { flex: none; display: inline-flex; color: var(--fp-navy-900); }
 
-.loading-msg{text-align:center;color:var(--muted);font-style:italic;padding:40px 0;font-size:15px;}
-.empty-msg{text-align:center;color:var(--muted);font-style:italic;padding:30px 0;font-size:14px;line-height:1.6;}
+.loading-msg, .empty-msg { text-align: center; color: var(--text-muted); padding: var(--space-8) 0; font-size: var(--font-size-body); }
+.loading-msg .fp-spinner { vertical-align: -3px; margin-right: var(--space-2); }
 
-.section-label{font-size:10px;letter-spacing:0.3em;text-transform:uppercase;font-weight:600;color:var(--gold);margin-bottom:14px;text-align:left;}
-
-.footer{font-size:12px;color:var(--muted);}
-.footer a{color:var(--rust);text-decoration:none;}
-
-@media(max-width:600px){
-  body{padding:24px 16px;align-items:flex-start;padding-top:40px;}
-  .student-card{padding:16px 18px;}
-}
+.footer { margin-top: var(--space-12); text-align: center; font-size: var(--font-size-sm); color: var(--text-muted); }
