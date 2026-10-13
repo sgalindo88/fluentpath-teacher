@@ -2,6 +2,9 @@
 
 The teacher site is released together with the student site and the backend, and the version numbers are the **backend** versions. The complete notes for each release (backend, student app and teacher site) are in the `fluentpath` repo's `CHANGELOG.md`; this file lists what changed **here**.
 
+## [0.61.0] - 2026-10-13
+- No teacher-site change (backend only: latest submission by time, a more varied lesson library, safer backup pruning). The teacher's "latest submission" view now shows the truly newest one.
+
 ## [0.60.0] - 2026-10-13
 - The dashboard asks for lesson answers explicitly (`get_progress&include_answers=1`), because the student-facing progress reply no longer carries them (faster, and now cacheable).
 
