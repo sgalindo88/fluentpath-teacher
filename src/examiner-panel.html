@@ -664,6 +664,21 @@
           <button class="btn-secondary" onclick="exportProfile('csv')">Download Report (CSV)</button>
         </div>
         <div class="send-status" id="profile-save-status"></div>
+
+        <div class="card card-top rust" id="danger-zone">
+          <div class="card-label">ARCHIVE OR DELETE THIS STUDENT</div>
+          <p class="u-sm u-muted u-mb-3" id="danger-archived-note" style="display:none;">
+            This student is archived: they cannot log in and they are hidden from the student list. Nothing has been erased.
+          </p>
+          <div class="row-wrap">
+            <button class="btn-secondary" id="archive-btn" onclick="archiveStudent()">Archive student</button>
+            <button class="btn-secondary" id="restore-btn" onclick="restoreStudent()" style="display:none;">Restore student</button>
+            <button class="btn-reject" id="delete-btn" onclick="deleteStudent()">Delete permanently…</button>
+          </div>
+          <p class="u-sm u-muted u-mt-3"><strong>Archive</strong> switches off their login and hides them. You can restore them any time.
+            <strong>Delete</strong> erases all their results, lessons, settings and recordings and cannot be undone.</p>
+          <div class="send-status" id="danger-status" role="status"></div>
+        </div>
       </div>
 
       <!-- ═══ PLACEMENT TEST MARKING PANEL ═══ -->

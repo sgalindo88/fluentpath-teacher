@@ -45,6 +45,7 @@
       loadStudents();
       loadAccountRequests();
       loadFeedback();
+      loadArchived();
     } catch (e) {
       setMsg(err, 'Could not reach the server. Please try again.');
     } finally {
@@ -190,6 +191,34 @@
     } catch (e) { btn.disabled = false; }
   });
 
+  async function loadArchived() {
+    var box = document.getElementById('archivedBox');
+    try {
+      var data = await FP.api.get(WEBHOOK_URL + '?action=get_archived_students');
+      var list = (data && data.students) || [];
+      box.classList.toggle('fp-hidden', !list.length);
+      document.getElementById('archivedSummary').textContent = 'Archived students (' + list.length + ')';
+      document.getElementById('archivedList').innerHTML = list.map(function(st) {
+        return '<li class="inbox-item" data-name="' + escHtml(st.name) + '">' +
+          '<div class="inbox-item__main"><strong>' + escHtml(st.name) + '</strong> <span class="inbox-meta">' + escHtml(st.email) + '</span></div>' +
+          '<div class="inbox-actions">' +
+          '<button type="button" class="fp-btn fp-btn--primary" data-act="restore">Restore</button>' +
+          '<a class="fp-btn fp-btn--secondary" href="src/examiner-panel.html?student=' + encodeURIComponent(st.name) + '">Open</a></div></li>';
+      }).join('');
+    } catch (e) { box.classList.add('fp-hidden'); }
+  }
+
+  document.getElementById('archivedList').addEventListener('click', async function(ev) {
+    var btn = ev.target.closest('button[data-act="restore"]');
+    if (!btn) return;
+    btn.disabled = true;
+    try {
+      await FP.api.postRead(WEBHOOK_URL + '?action=restore_student', { student_name: btn.closest('li').getAttribute('data-name') });
+      loadArchived();
+      loadStudents();
+    } catch (e) { btn.disabled = false; }
+  });
+
   // ── Student picker ──
   async function loadStudents() {
     try {
@@ -214,6 +243,6 @@
   }
 
   // ── Init ──
-  if (isTeacher()) { show('portal'); loadStudents(); loadAccountRequests(); loadFeedback(); }
+  if (isTeacher()) { show('portal'); loadStudents(); loadAccountRequests(); loadFeedback(); loadArchived(); }
   else { show('login'); }
 })();

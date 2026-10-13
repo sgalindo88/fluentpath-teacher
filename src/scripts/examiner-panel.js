@@ -496,6 +496,7 @@ function loadStudentProfile() {
         ex.notifyOnSubmission = !!d.notify_on_submission;
         ex.notifyOnCallRequest = d.notify_on_call_request !== false;
       }
+      showArchivedState(!!d.archived);
       fillProfileForm();
       document.getElementById('sb-student-level').textContent = ex.studentLevel + ' · ' + getLevelTheme(ex.studentLevel);
       document.getElementById('sb-student-day').textContent = 'Month ' + ex.studentMonth + ' · Day ' + getCurrentDay();
@@ -927,6 +928,57 @@ async function reviewFocus(id, decision, btn) {
   } catch (e) {
     if (btn) btn.disabled = false;
     showStatus('focus-review-status', '⚠ Not saved: ' + e.message, true);
+  }
+}
+
+// ── Archive and delete a student ──
+function showArchivedState(archived) {
+  var show = function (id, on) { var el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+  show('danger-archived-note', archived);
+  show('archive-btn', !archived);
+  show('restore-btn', archived);
+}
+
+function leaveStudent() {
+  try { localStorage.removeItem('fluentpath_teacher'); localStorage.removeItem('fp_lesson_marks'); } catch (e) { /* ignore */ }
+  location.href = '../';
+}
+
+async function archiveStudent() {
+  if (!await confirmDialog({
+    title: 'Archive ' + ex.studentName + '?',
+    message: 'They will not be able to log in and will disappear from your student list. Nothing is erased, and you can restore them later from the student list page.',
+    confirmLabel: 'Archive student', danger: false })) return;
+  try {
+    await teacherWrite({ action: 'archive_student', student_name: ex.studentName });
+    FP.ui.toast('Archived. Back to the student list.', { variant: 'success' });
+    setTimeout(leaveStudent, 900);
+  } catch (e) { showStatus('danger-status', 'Not archived: ' + e.message, true); }
+}
+
+async function restoreStudent() {
+  try {
+    await teacherWrite({ action: 'restore_student', student_name: ex.studentName });
+    showArchivedState(false);
+    showStatus('danger-status', 'Restored. They can log in again.', false);
+  } catch (e) { showStatus('danger-status', 'Not restored: ' + e.message, true); }
+}
+
+async function deleteStudent() {
+  var name = ex.studentName;
+  if (!await confirmDialog({
+    title: 'Delete ' + name + ' permanently?',
+    message: 'This erases their account, placement test, lessons, marks, attendance, settings and recordings. It cannot be undone. If you only want them gone from your list, use Archive instead.',
+    typeToConfirm: name, confirmLabel: 'Delete permanently', danger: true })) return;
+  var btn = document.getElementById('delete-btn');
+  if (btn) btn.disabled = true;
+  try {
+    var res = await teacherWrite({ action: 'delete_student', student_name: name, confirm_name: name });
+    FP.ui.toast('Deleted ' + name + (res.recordings_trashed ? ' and their recordings (moved to the Drive trash).' : '.'), { variant: 'success' });
+    setTimeout(leaveStudent, 1200);
+  } catch (e) {
+    if (btn) btn.disabled = false;
+    showStatus('danger-status', 'Not deleted: ' + e.message, true);
   }
 }
 
@@ -2405,6 +2457,10 @@ function confirmDialog(opts) {
       '<div class="fp-modal" role="alertdialog" aria-modal="true" aria-labelledby="cdTitle" aria-describedby="cdMsg">' +
         '<h2 class="fp-modal__title" id="cdTitle">' + escHtml(opts.title) + '</h2>' +
         '<p id="cdMsg" class="u-mb-6">' + escHtml(opts.message || '') + '</p>' +
+        (opts.typeToConfirm
+          ? '<div class="pf u-mb-6"><label for="cdType">Type <strong>' + escHtml(opts.typeToConfirm) + '</strong> to confirm</label>' +
+            '<input type="text" id="cdType" autocomplete="off" autocapitalize="none" spellcheck="false"></div>'
+          : '') +
         '<div class="confirm-actions">' +
           '<button type="button" class="btn-primary" id="cdCancel">' + escHtml(opts.cancelLabel || 'Cancel') + '</button>' +
           '<button type="button" class="' + (opts.danger ? 'btn-reject' : 'btn-secondary') + '" id="cdOk">' + escHtml(opts.confirmLabel || 'OK') + '</button>' +
@@ -2412,18 +2468,26 @@ function confirmDialog(opts) {
       '</div>';
     document.body.appendChild(scrim);
     var cancel = scrim.querySelector('#cdCancel'), ok = scrim.querySelector('#cdOk');
+    var typed = scrim.querySelector('#cdType');
+    if (typed) {
+      ok.disabled = true;
+      typed.addEventListener('input', function () {
+        ok.disabled = typed.value.trim().toLowerCase() !== String(opts.typeToConfirm).trim().toLowerCase();
+      });
+    }
     function done(v) { document.removeEventListener('keydown', onKey); scrim.remove(); if (prev && prev.focus) prev.focus(); resolve(v); }
     function onKey(e) {
       if (e.key === 'Escape') { e.preventDefault(); done(false); }
       else if (e.key === 'Tab') {
-        if (e.shiftKey && document.activeElement === cancel) { e.preventDefault(); ok.focus(); }
-        else if (!e.shiftKey && document.activeElement === ok) { e.preventDefault(); cancel.focus(); }
+        var first = typed || cancel, last = ok.disabled ? (typed || cancel) : ok;
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       }
     }
     document.addEventListener('keydown', onKey);
     scrim.addEventListener('click', function (e) { if (e.target === scrim) done(false); });
     cancel.onclick = function () { done(false); };
-    ok.onclick = function () { done(true); };
+    ok.onclick = function () { if (!ok.disabled) done(true); };
     cancel.focus();
   });
 }
